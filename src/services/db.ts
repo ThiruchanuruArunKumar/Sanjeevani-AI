@@ -665,35 +665,121 @@ export class DatabaseService {
   // ----------------------------------------------------
   // Doctor Auth Actions
   // ----------------------------------------------------
-  static loginDoctor(email: string, password: string): DoctorProfile | null {
+  static async loginDoctor(email: string, password: string): Promise<DoctorProfile | null> {
     this.init();
-    const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
-    const doc = doctors.find((d: any) => d.email.toLowerCase() === email.toLowerCase()) || 
-                JSON.parse(localStorage.getItem('sj_doctor') || 'null');
-    if (doc && doc.email.toLowerCase() === email.toLowerCase() && password === 'password123') {
-      localStorage.setItem('sj_doctor', JSON.stringify(doc));
-      localStorage.setItem('sj_active_role', 'doctor');
-      localStorage.setItem('sj_active_user', JSON.stringify(doc));
-      return doc;
+    
+    // 1. Authenticate with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      email,
+      password
+    });
+
+    if (authError) {
+      throw new Error(authError.message);
     }
-    return null;
+
+    if (!authData.user) {
+      return null;
+    }
+
+    // 2. Fetch the corresponding doctor profile from the public.doctors table
+    const { data: doc, error: dbError } = await supabase
+      .from('doctors')
+      .select('*')
+      .eq('id', authData.user.id)
+      .maybeSingle();
+
+    if (dbError) {
+      console.error('Error fetching doctor profile from DB:', dbError);
+    }
+
+    let profile: DoctorProfile;
+
+    if (doc) {
+      profile = {
+        id: doc.id,
+        name: doc.name,
+        email: doc.email,
+        specialty: doc.specialty,
+        clinicName: doc.clinic_name,
+        avatarUrl: doc.avatar_url
+      };
+    } else {
+      // Fallback: If auth exists but database row is missing (create profile row)
+      profile = {
+        id: authData.user.id,
+        name: 'Dr. Aarav Mehta',
+        email: authData.user.email || email,
+        specialty: 'Cardiology & AI Drug Safety',
+        clinicName: 'Sanjeevani AI Digital Hospital, Block A',
+        avatarUrl: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150&auto=format&fit=crop&q=80'
+      };
+
+      await supabase.from('doctors').upsert({
+        id: profile.id,
+        name: profile.name,
+        email: profile.email,
+        specialty: profile.specialty,
+        clinic_name: profile.clinicName,
+        avatar_url: profile.avatarUrl
+      });
+    }
+
+    // Cache the authenticated doctor
+    localStorage.setItem('sj_doctor', JSON.stringify(profile));
+    localStorage.setItem('sj_active_role', 'doctor');
+    localStorage.setItem('sj_active_user', JSON.stringify(profile));
+
+    // Also update sj_doctors_list
+    const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    const idx = doctors.findIndex((d: any) => d.id === profile.id);
+    if (idx !== -1) {
+      doctors[idx] = profile;
+    } else {
+      doctors.push(profile);
+    }
+    localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+
+    return profile;
   }
 
-  static registerDoctor(name: string, email: string, specialty: string, clinic: string): DoctorProfile {
+  static async registerDoctor(name: string, email: string, specialty: string, clinic: string, password?: string): Promise<DoctorProfile> {
     this.init();
+
+    if (!password) {
+      throw new Error('Password is required for registration.');
+    }
+
+    // 1. Register with Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password
+    });
+
+    if (authError) {
+      throw new Error(authError.message);
+    }
+
+    if (!authData.user) {
+      throw new Error('Clinician registration failed in Supabase Auth');
+    }
+
+    const docId = authData.user.id;
+
     const newDoc: DoctorProfile = {
-      id: `doc_${Date.now()}`,
+      id: docId,
       name,
       email,
       specialty,
       clinicName: clinic,
       avatarUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&auto=format&fit=crop&q=80'
     };
+
     localStorage.setItem('sj_doctor', JSON.stringify(newDoc));
     localStorage.setItem('sj_active_role', 'doctor');
     localStorage.setItem('sj_active_user', JSON.stringify(newDoc));
 
-    // Also update sj_doctors_list
+    // Update sj_doctors_list
     const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
     const existsIdx = doctors.findIndex((d: any) => d.email.toLowerCase() === email.toLowerCase());
     if (existsIdx !== -1) {
@@ -703,17 +789,19 @@ export class DatabaseService {
     }
     localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
 
-    // Supabase Async upsert push
-    supabase.from('doctors').upsert({
+    // 2. Persist to public.doctors table
+    const { error: dbError } = await supabase.from('doctors').upsert({
       id: newDoc.id,
       name: newDoc.name,
       email: newDoc.email,
       specialty: newDoc.specialty,
       clinic_name: newDoc.clinicName,
       avatar_url: newDoc.avatarUrl
-    }).then(({ error }) => {
-      if (error) console.error('Supabase doctor register failed:', error);
     });
+
+    if (dbError) {
+      console.error('Supabase doctor register table insert failed:', dbError);
+    }
 
     return newDoc;
   }

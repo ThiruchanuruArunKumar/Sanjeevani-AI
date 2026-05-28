@@ -16,23 +16,32 @@ export const DoctorAuth: React.FC<DoctorAuthProps> = ({ onNavigate }) => {
   const [clinic, setClinic] = useState('Sanjeevani AI Hospital, Block C');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError('');
+    
     if (isLogin) {
-      const user = DatabaseService.loginDoctor(email, password);
-      if (user) {
-        onNavigate('doctor/dashboard');
-      } else {
-        setError('Invalid clinical credentials. Use preset doctor@sanjeevani.ai / password123.');
-        setTimeout(() => setError(''), 4000);
+      try {
+        const user = await DatabaseService.loginDoctor(email, password);
+        if (user) {
+          onNavigate('doctor/dashboard');
+        } else {
+          setError('Authentication failed. No clinician profile returned.');
+        }
+      } catch (err: any) {
+        setError(err.message || 'Login failed. Please check your internet connection or credentials.');
       }
     } else {
-      if (!name || !email) {
-        setError('Please fill in Name and Email address.');
+      if (!name || !email || !password) {
+        setError('Please fill in Name, Email address, and Password.');
         return;
       }
-      DatabaseService.registerDoctor(name, email, specialty, clinic);
-      onNavigate('doctor/dashboard');
+      try {
+        await DatabaseService.registerDoctor(name, email, specialty, clinic, password);
+        onNavigate('doctor/dashboard');
+      } catch (err: any) {
+        setError(err.message || 'Registration failed. Try using a stronger password.');
+      }
     }
   };
 
@@ -142,8 +151,11 @@ export const DoctorAuth: React.FC<DoctorAuthProps> = ({ onNavigate }) => {
 
             {isLogin && (
               <div className="p-3 bg-teal-50/60 text-slate-600 rounded-xl border border-teal-500/10 text-[11px] leading-relaxed font-medium">
-                <span className="font-bold text-primary block">Clinical Simulator Mode:</span>
-                Presets loaded: <span className="font-semibold text-slate-800 bg-slate-100 px-1 py-0.5 rounded">doctor@sanjeevani.ai</span> with password <span className="font-semibold text-slate-800 bg-slate-100 px-1 py-0.5 rounded">password123</span>.
+                <span className="font-bold text-primary block">Supabase Authentication Enabled:</span>
+                Log in with your registered clinician credentials. For quick testing, you can use:
+                <div className="mt-1 font-semibold text-slate-800 bg-slate-100/80 px-2 py-1 rounded select-all font-mono">
+                  doctor@sanjeevani.ai / password123
+                </div>
               </div>
             )}
 
