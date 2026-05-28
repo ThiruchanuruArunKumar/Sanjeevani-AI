@@ -27,7 +27,7 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({ onNavigate }) => {
       setSmsSent(result.otp);
       setError('');
     } else {
-      setError('Phone number not registered. Use preset "9876543210" or "9876543220" for simulation.');
+      setError('Phone number not registered. Please ensure a clinician has registered your profile first.');
       setTimeout(() => setError(''), 4000);
     }
   };
@@ -38,15 +38,15 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({ onNavigate }) => {
     if (patient) {
       onNavigate('patient/dashboard');
     } else {
-      setError('Invalid verification code. Enter "4582" to proceed.');
+      setError('Invalid verification code. Please check and try again.');
       setTimeout(() => setError(''), 4500);
     }
   };
 
-  // Google single-sign on bypass (logs in Rohan Sharma)
+  // Google single-sign on placeholder (Disabled for production)
   const handleGoogleAuth = () => {
-    DatabaseService.loginPatient('9876543210', '4582');
-    onNavigate('patient/dashboard');
+    setError('SSO is currently disabled. Please use OTP login.');
+    setTimeout(() => setError(''), 4500);
   };
 
   return (
@@ -90,12 +90,6 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({ onNavigate }) => {
                   {error}
                 </div>
               )}
-
-              <div className="p-3.5 bg-teal-50/60 text-slate-600 rounded-xl border border-teal-500/10 text-xs leading-relaxed font-medium">
-                <span className="font-bold text-primary block">Patient Demo Presets:</span>
-                • Rohan Sharma: <span className="font-semibold text-slate-800 bg-slate-100 px-1 py-0.5 rounded">9876543210</span> <span className="text-primary font-bold">(SJV-PAT-000001)</span> — Hypertension, Penicillin Allergy<br/>
-                • Ananya Iyer: <span className="font-semibold text-slate-800 bg-slate-100 px-1 py-0.5 rounded">9876543220</span> <span className="text-primary font-bold">(SJV-PAT-000002)</span> — Asthma, Aspirin Sensitivity
-              </div>
 
               <button type="submit" className="w-full btn-medical py-3 font-bold text-sm shadow-premium">
                 Send OTP Verification
