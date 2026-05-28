@@ -181,6 +181,12 @@ export class DatabaseService {
     if (this.isInitialized) return;
     this.isInitialized = true;
 
+    // Force clear old demo data from browser cache for production launch
+    if (localStorage.getItem('sj_prod_launch_v1') !== 'true') {
+      localStorage.clear();
+      localStorage.setItem('sj_prod_launch_v1', 'true');
+    }
+
     if (!localStorage.getItem('sj_doctor')) {
       localStorage.setItem('sj_doctor', JSON.stringify(SEED_DOCTOR));
     }
@@ -269,12 +275,12 @@ export class DatabaseService {
         
         // Also ensure a default doctor profile is set in sj_doctor if empty
         const currentDoc = localStorage.getItem('sj_doctor');
-        if (!currentDoc || currentDoc === 'null') {
+        if ((!currentDoc || currentDoc === 'null') && mappedDocs.length > 0) {
           localStorage.setItem('sj_doctor', JSON.stringify(mappedDocs[0]));
         }
       }
 
-      if (pats && pats.length > 0) {
+      if (pats) {
         const mappedPats = pats.map(p => ({
           id: p.id,
           name: p.name,
@@ -291,7 +297,7 @@ export class DatabaseService {
         localStorage.setItem('sj_patients', JSON.stringify(mappedPats));
       }
 
-      if (visits && visits.length > 0) {
+      if (visits) {
         const mappedVisits = visits.map(v => ({
           id: v.id,
           patientId: v.patient_id,
@@ -307,11 +313,11 @@ export class DatabaseService {
         localStorage.setItem('sj_visits', JSON.stringify(mappedVisits));
       }
 
-      if (reports && reports.length > 0) {
+      if (reports) {
         localStorage.setItem('sj_reports', JSON.stringify(reports));
       }
 
-      if (alerts && alerts.length > 0) {
+      if (alerts) {
         const mappedAlerts = alerts.map(a => ({
           id: a.id,
           patientId: a.patient_id,
@@ -326,7 +332,7 @@ export class DatabaseService {
         localStorage.setItem('sj_alerts', JSON.stringify(mappedAlerts));
       }
 
-      if (feedbacks && feedbacks.length > 0) {
+      if (feedbacks) {
         const mappedFeedbacks = feedbacks.map(f => ({
           id: f.id,
           patientId: f.patient_id,
@@ -344,7 +350,7 @@ export class DatabaseService {
         localStorage.setItem('sj_feedbacks', JSON.stringify(mappedFeedbacks));
       }
 
-      if (predictions && predictions.length > 0) {
+      if (predictions) {
         const mappedPredictions = predictions.map(p => ({
           predictionId: p.prediction_id,
           patientId: p.patient_id,
@@ -357,7 +363,7 @@ export class DatabaseService {
         localStorage.setItem('sj_predictions', JSON.stringify(mappedPredictions));
       }
 
-      if (logs && logs.length > 0) {
+      if (logs) {
         const mappedLogs = logs.map(l => ({
           id: l.id,
           patientId: l.patient_id,
