@@ -1,6 +1,6 @@
 // src/App.tsx
 import React, { useState, useEffect } from 'react';
-import { DatabaseService } from './services/db';
+import { DatabaseService, supabase } from './services/db';
 import { ThemeProvider } from './context/ThemeContext';
 import { Layout } from './components/Layout';
 import { Welcome } from './routes/Public/Welcome';
@@ -28,6 +28,20 @@ export const App: React.FC = () => {
   useEffect(() => {
     setTick(t => t + 1);
   }, [currentView]);
+
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN') {
+        const resolved = await DatabaseService.handlePatientOAuthResolution(session);
+        if (resolved) {
+          handleNavigate('patient/dashboard');
+        }
+      }
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleNavigate = (view: string) => {
     setCurrentView(view);

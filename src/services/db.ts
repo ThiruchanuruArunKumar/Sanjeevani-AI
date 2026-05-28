@@ -601,6 +601,98 @@ export class DatabaseService {
     return null;
   }
 
+  static async loginPatientWithGoogle() {
+    this.init();
+    localStorage.setItem('sj_oauth_intent', 'patient');
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  static async handlePatientOAuthResolution(session: any): Promise<boolean> {
+    if (!session || !session.user) return false;
+    
+    const intent = localStorage.getItem('sj_oauth_intent');
+    if (intent === 'patient') {
+      localStorage.removeItem('sj_oauth_intent');
+      
+      const email = session.user.email;
+      const { data: existingPatients } = await supabase
+        .from('patients')
+        .select('*')
+        .eq('email', email);
+        
+      if (existingPatients && existingPatients.length > 0) {
+        // Returning User
+        const p = existingPatients[0];
+        const patient: PatientProfile = {
+          id: p.id,
+          name: p.name,
+          age: p.age,
+          phone: p.phone || '',
+          email: p.email,
+          bloodGroup: p.blood_group || 'Unknown',
+          allergies: p.allergies || [],
+          chronicConditions: p.chronic_conditions || [],
+          activeMedications: p.active_medications || [],
+          emergencyContact: p.emergency_contact || { name: '', phone: '' },
+          vitals: p.vitals || { systolicBP: 120, diastolicBP: 80, heartRate: 72, temperature: 98.6, oxygenSat: 98, bloodGlucose: 100, weight: 70, pulseRate: 72 }
+        };
+        localStorage.setItem('sj_active_role', 'patient');
+        localStorage.setItem('sj_active_user', JSON.stringify(patient));
+        
+        const patients = this.getPatients();
+        if (!patients.find(x => x.id === patient.id)) {
+          patients.push(patient);
+          localStorage.setItem('sj_patients', JSON.stringify(patients));
+        }
+      } else {
+        // New User Auto-Creation
+        const patientId = generatePatientId();
+        const newPatient: PatientProfile = {
+          id: patientId,
+          name: session.user.user_metadata?.full_name || 'New Patient',
+          age: 30,
+          phone: '',
+          email: email,
+          bloodGroup: 'Unknown',
+          allergies: [],
+          chronicConditions: [],
+          activeMedications: [],
+          emergencyContact: { name: '', phone: '' },
+          vitals: { systolicBP: 120, diastolicBP: 80, heartRate: 72, temperature: 98.6, oxygenSat: 98, bloodGlucose: 100, weight: 70, pulseRate: 72 }
+        };
+        
+        await supabase.from('patients').insert({
+          id: newPatient.id,
+          name: newPatient.name,
+          age: newPatient.age,
+          phone: newPatient.phone,
+          email: newPatient.email,
+          blood_group: newPatient.bloodGroup,
+          allergies: newPatient.allergies,
+          chronic_conditions: newPatient.chronicConditions,
+          active_medications: newPatient.activeMedications,
+          emergency_contact: newPatient.emergencyContact,
+          vitals: newPatient.vitals
+        });
+        
+        localStorage.setItem('sj_active_role', 'patient');
+        localStorage.setItem('sj_active_user', JSON.stringify(newPatient));
+        
+        const patients = this.getPatients();
+        patients.push(newPatient);
+        localStorage.setItem('sj_patients', JSON.stringify(patients));
+      }
+      return true;
+    }
+    return false;
+  }
+
   static logout() {
     localStorage.removeItem('sj_active_role');
     localStorage.removeItem('sj_active_user');
