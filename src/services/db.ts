@@ -451,6 +451,9 @@ export class DatabaseService {
     if (!localStorage.getItem('sj_doctor')) {
       localStorage.setItem('sj_doctor', JSON.stringify(SEED_DOCTOR));
     }
+    if (!localStorage.getItem('sj_doctors_list')) {
+      localStorage.setItem('sj_doctors_list', JSON.stringify([SEED_DOCTOR]));
+    }
     if (!localStorage.getItem('sj_patients')) {
       localStorage.setItem('sj_patients', JSON.stringify(SEED_PATIENTS));
     }
@@ -491,7 +494,7 @@ export class DatabaseService {
       console.log('Connecting to Supabase and pulling remote clinical database...');
       
       const [
-        { data: doc, error: docError },
+        { data: docs, error: docsError },
         { data: pats, error: patsError },
         { data: visits, error: visitsError },
         { data: reports, error: reportsError },
@@ -500,7 +503,7 @@ export class DatabaseService {
         { data: predictions, error: predictionsError },
         { data: logs, error: logsError }
       ] = await Promise.all([
-        supabase.from('doctors').select('*').limit(1).maybeSingle(),
+        supabase.from('doctors').select('*'),
         supabase.from('patients').select('*'),
         supabase.from('visits').select('*'),
         supabase.from('reports').select('*'),
@@ -510,7 +513,7 @@ export class DatabaseService {
         supabase.from('medication_logs').select('*')
       ]);
 
-      if (docError) console.error('Error fetching doctors from Supabase:', docError);
+      if (docsError) console.error('Error fetching doctors from Supabase:', docsError);
       if (patsError) console.error('Error fetching patients from Supabase:', patsError);
       if (visitsError) console.error('Error fetching visits from Supabase:', visitsError);
       if (reportsError) console.error('Error fetching reports from Supabase:', reportsError);
@@ -520,15 +523,22 @@ export class DatabaseService {
       if (logsError) console.error('Error fetching medication logs from Supabase:', logsError);
 
       // Hydrate local cache and sync to browser
-      if (doc) {
-        localStorage.setItem('sj_doctor', JSON.stringify({
-          id: doc.id,
-          name: doc.name,
-          email: doc.email,
-          specialty: doc.specialty,
-          clinicName: doc.clinic_name,
-          avatarUrl: doc.avatar_url
+      if (docs && docs.length > 0) {
+        const mappedDocs = docs.map(d => ({
+          id: d.id,
+          name: d.name,
+          email: d.email,
+          specialty: d.specialty,
+          clinicName: d.clinic_name,
+          avatarUrl: d.avatar_url
         }));
+        localStorage.setItem('sj_doctors_list', JSON.stringify(mappedDocs));
+        
+        // Also ensure a default doctor profile is set in sj_doctor if empty
+        const currentDoc = localStorage.getItem('sj_doctor');
+        if (!currentDoc || currentDoc === 'null') {
+          localStorage.setItem('sj_doctor', JSON.stringify(mappedDocs[0]));
+        }
       }
 
       if (pats && pats.length > 0) {
@@ -657,8 +667,11 @@ export class DatabaseService {
   // ----------------------------------------------------
   static loginDoctor(email: string, password: string): DoctorProfile | null {
     this.init();
-    const doc = JSON.parse(localStorage.getItem('sj_doctor') || 'null');
-    if (doc && doc.email === email && password === 'password123') {
+    const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    const doc = doctors.find((d: any) => d.email.toLowerCase() === email.toLowerCase()) || 
+                JSON.parse(localStorage.getItem('sj_doctor') || 'null');
+    if (doc && doc.email.toLowerCase() === email.toLowerCase() && password === 'password123') {
+      localStorage.setItem('sj_doctor', JSON.stringify(doc));
       localStorage.setItem('sj_active_role', 'doctor');
       localStorage.setItem('sj_active_user', JSON.stringify(doc));
       return doc;
@@ -680,6 +693,16 @@ export class DatabaseService {
     localStorage.setItem('sj_active_role', 'doctor');
     localStorage.setItem('sj_active_user', JSON.stringify(newDoc));
 
+    // Also update sj_doctors_list
+    const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    const existsIdx = doctors.findIndex((d: any) => d.email.toLowerCase() === email.toLowerCase());
+    if (existsIdx !== -1) {
+      doctors[existsIdx] = newDoc;
+    } else {
+      doctors.push(newDoc);
+    }
+    localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+
     // Supabase Async upsert push
     supabase.from('doctors').upsert({
       id: newDoc.id,
@@ -699,6 +722,16 @@ export class DatabaseService {
     this.init();
     localStorage.setItem('sj_doctor', JSON.stringify(doc));
     localStorage.setItem('sj_active_user', JSON.stringify(doc));
+
+    // Also update sj_doctors_list
+    const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    const idx = doctors.findIndex((d: any) => d.id === doc.id);
+    if (idx !== -1) {
+      doctors[idx] = doc;
+    } else {
+      doctors.push(doc);
+    }
+    localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
 
     // Supabase upsert
     supabase.from('doctors').upsert({
