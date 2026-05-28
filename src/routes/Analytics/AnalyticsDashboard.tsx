@@ -114,7 +114,7 @@ export const AnalyticsDashboard: React.FC = () => {
   });
 
   // 1. Population Risk Distribution counts
-  const riskCounts = {
+  const riskCounts: Record<string, number> = {
     'Stable': 0,
     'Moderate': 0,
     'High': 0,

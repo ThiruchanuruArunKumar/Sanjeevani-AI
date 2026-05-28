@@ -787,7 +787,11 @@ export class DatabaseService {
       phone: params.phone,
       email: params.email,
       bloodGroup: params.bloodGroup,
-      allergies: params.allergies,
+      allergies: params.allergies.map(a => ({
+        allergen: a.allergen,
+        severity: a.severity as 'Mild' | 'Moderate' | 'Severe',
+        reaction: a.reaction
+      })),
       chronicConditions: params.chronicConditions,
       activeMedications: [],
       emergencyContact: {
@@ -1390,7 +1394,7 @@ export class DatabaseService {
       aiScore: result.score,
       predictedRisk: result.predictedRisk,
       severity: result.severity,
-      predictionNotes: result.notes,
+      predictionNotes: result.notes || '',
       generatedAt: new Date().toISOString().split('T')[0]
     };
 
@@ -1400,7 +1404,7 @@ export class DatabaseService {
 
     const alertId = `alert_pred_${Date.now()}`;
     const date = new Date().toISOString().split('T')[0];
-    const alertMsg = `AI Health Risk Intelligence has detected ${result.severity.toUpperCase()} risk of "${result.predictedRisk}". ${result.notes}`;
+    const alertMsg = `AI Health Risk Intelligence has detected ${result.severity.toUpperCase()} risk of "${result.predictedRisk}". ${result.notes || ''}`;
 
     if (result.severity === 'high' || result.severity === 'critical') {
       const newAlert: HealthAlert = {
