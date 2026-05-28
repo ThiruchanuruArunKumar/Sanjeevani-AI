@@ -1057,7 +1057,7 @@ export class DatabaseService {
         type: 'prescription',
         title: presAlert.title,
         message: presAlert.message,
-        related_id: prescription.id,
+        related_id: prescription!.id,
         redirect_url: presAlert.redirectUrl,
         read: false
       });
