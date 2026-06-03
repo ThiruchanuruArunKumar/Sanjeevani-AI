@@ -17,12 +17,15 @@ import {
   Lock
 } from 'lucide-react';
 
+import { useIsMobile } from '../../services/platform';
+
 interface DoctorDashboardProps {
   onNavigate: (view: string) => void;
 }
 
 export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onNavigate }) => {
   const { user } = DatabaseService.getActiveSession();
+  const isMobile = useIsMobile();
   const [patients, setPatients] = useState<PatientProfile[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
@@ -32,7 +35,15 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onNavigate }) 
   const loadData = () => {
     if (!user) return;
     
-    // Only fetch patients tied to this doctor (appointments or visits)
+    if (!isMobile) {
+      // Desktop: Original dashboard design - load all patients and feedbacks
+      setPatients(DatabaseService.getPatients());
+      setFeedbacks(DatabaseService.getFeedbacks());
+      setPendingAppointments([]);
+      return;
+    }
+    
+    // Mobile: Only fetch patients tied to this doctor (appointments or visits)
     const allAppointments = DatabaseService.getAppointments();
     const myAppointments = allAppointments.filter(a => a.doctorId === user.id);
     setPendingAppointments(myAppointments.filter(a => a.status === 'forwarded'));
@@ -70,7 +81,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onNavigate }) 
       unsubscribeFeedbacks();
       unsubscribeApts();
     };
-  }, []);
+  }, [isMobile]);
 
   const filteredPatients = patients.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -90,8 +101,12 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onNavigate }) 
       {/* Top Welcome Title */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Doctors Dashboard</h1>
-          <p className="text-slate-500 text-sm mt-0.5">Welcome, {user?.name || 'Doctor'}. Your unified drug safety workspace is synced.</p>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">
+            {isMobile ? 'Doctors Dashboard' : 'Clinical Dashboard'}
+          </h1>
+          <p className="text-slate-500 text-sm mt-0.5">
+            Welcome, {user?.name || (isMobile ? 'Doctor' : 'Dr. Aarav Mehta')}. Your unified drug safety workspace is synced.
+          </p>
         </div>
 
         {/* Quick Shortcut Buttons */}
@@ -164,8 +179,53 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onNavigate }) 
 
 
 
-      {/* 📅 Assigned Appointments from Admin */}
-      {pendingAppointments.length > 0 && (
+      {/* Alert Warning Box if critical parameters exist (Desktop) */}
+      {!isMobile && criticalPatients > 0 && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-500/10 flex gap-3.5 items-start medical-glow-active">
+          <AlertCircle className="h-5.5 w-5.5 text-rose-600 shrink-0 mt-0.5 animate-bounce" />
+          <div className="flex-1 text-left">
+            <span className="text-sm font-bold text-rose-900 block">AI Critical Vitals Watchlist Recommendation</span>
+            <span className="text-xs leading-relaxed text-rose-800 block mt-1">
+              Patient <span className="font-bold">Rohan Sharma</span> has active Stage 3 Kidney Impairment (eGFR 52 mL/min) and high-dose systolic BP ({patients.find(p=>p.id==='SJV-PAT-000001')?.vitals.systolicBP} mmHg). Spironolactone or high NSAIDs are highly discouraged. Ensure prescribing safety audit is performed.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Clinician Adherence Watchlist Banner (Desktop) */}
+      {!isMobile && (() => {
+        const lowAdherencePats = patients.filter(p => DatabaseService.getAdherenceScore(p.id) < 80);
+        if (lowAdherencePats.length === 0) return null;
+        return (
+          <div className="p-4 rounded-2xl bg-amber-50 border border-amber-500/10 flex gap-3.5 items-start medical-glow-active">
+            <ShieldAlert className="h-5.5 w-5.5 text-amber-600 shrink-0 mt-0.5 animate-pulse" />
+            <div className="flex-1 text-left">
+              <span className="text-sm font-bold text-amber-900 block">AI Medication Adherence Watchlist Warning</span>
+              <div className="text-xs leading-relaxed text-amber-800 block mt-1">
+                The following patients have dynamic medication compliance below the safety threshold (<span className="font-bold">80%</span>). Review schedules and guide patients immediately:
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {lowAdherencePats.map(p => {
+                    const score = DatabaseService.getAdherenceScore(p.id);
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => onNavigate(`doctor/patient/${p.id}`)}
+                        className="px-2.5 py-1 bg-amber-100 hover:bg-amber-200 text-amber-800 border border-amber-300/35 rounded-lg font-bold transition-all text-[10px] active:scale-95 shadow-sm flex items-center gap-1"
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-ping" />
+                        {p.name} ({score.toFixed(0)}% Adherence)
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* 📅 Assigned Appointments from Admin (Mobile) */}
+      {isMobile && pendingAppointments.length > 0 && (
         <div className="glass-card p-6 rounded-3xl border border-blue-200/60 bg-blue-50/30 shadow-premium space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
@@ -181,7 +241,7 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onNavigate }) 
               const allPats = DatabaseService.getPatients();
               const pat = allPats.find(p => p.id === apt.patientId);
               return (
-                <div key={apt.id} className="bg-white rounded-2xl p-4 border border-blue-100 flex items-center gap-4">
+                <div key={apt.id} className="bg-white rounded-2xl p-4 border border-blue-100 flex items-center gap-4 text-left">
                   <div className="h-12 w-12 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center shrink-0">
                     <User className="h-6 w-6 text-blue-600" />
                   </div>

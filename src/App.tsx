@@ -30,10 +30,19 @@ import { ManageDoctors } from './routes/Admin/ManageDoctors';
 import { ManageAppointments } from './routes/Admin/ManageAppointments';
 import { ManagePatients } from './routes/Admin/ManagePatients';
 import { DoctorRouteWrapper } from './routes/Doctor/DoctorRouteWrapper';
+import { useIsMobile, isCapacitorAndroid } from './services/platform';
 
 export const App: React.FC = () => {
-  const [showSplash, setShowSplash] = useState<boolean>(true);
-  const [currentView, setCurrentView] = useState<string>('role-selection');
+  const isMobile = useIsMobile();
+  const [showSplash, setShowSplash] = useState<boolean>(() => {
+    return window.innerWidth < 768 || isCapacitorAndroid();
+  });
+  const [currentView, setCurrentView] = useState<string>(() => {
+    const path = window.location.pathname.substring(1);
+    if (path) return path;
+    const initialMobile = window.innerWidth < 768 || isCapacitorAndroid();
+    return initialMobile ? 'role-selection' : 'welcome';
+  });
   const [, setTick] = useState(0); // force re-render on session change
 
   useEffect(() => {
@@ -42,8 +51,10 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname.substring(1) || 'role-selection';
-      setCurrentView(path);
+      const path = window.location.pathname.substring(1);
+      const currentMobile = window.innerWidth < 768 || isCapacitorAndroid();
+      const defaultView = currentMobile ? 'role-selection' : 'welcome';
+      setCurrentView(path || defaultView);
     };
 
     window.addEventListener('popstate', handlePopState);
@@ -72,7 +83,8 @@ export const App: React.FC = () => {
 
   const handleNavigate = (view: string) => {
     setCurrentView(view);
-    const urlPath = view === 'role-selection' ? '/' : `/${view}`;
+    const defaultView = isMobile ? 'role-selection' : 'welcome';
+    const urlPath = view === defaultView ? '/' : `/${view}`;
     if (window.location.pathname !== urlPath) {
       window.history.pushState({}, '', urlPath);
     }
@@ -197,7 +209,11 @@ export const App: React.FC = () => {
     if (currentView.startsWith('admin/'))   return <AdminAuth onNavigate={handleNavigate} />;
     if (currentView.startsWith('doctor/'))  return <DoctorAuth onNavigate={handleNavigate} />;
     if (currentView.startsWith('patient/')) return <PatientAuth onNavigate={handleNavigate} />;
-    return <RoleSelection onNavigate={handleNavigate} />;
+    return isMobile ? (
+      <RoleSelection onNavigate={handleNavigate} />
+    ) : (
+      <Welcome onNavigate={handleNavigate} />
+    );
   };
 
   const { role: activeRole } = DatabaseService.getActiveSession();
@@ -210,7 +226,7 @@ export const App: React.FC = () => {
     currentView === 'admin/login' ||
     currentView.startsWith('emergency/');
 
-  if (showSplash) {
+  if (isMobile && showSplash) {
     return <Splash onComplete={() => setShowSplash(false)} />;
   }
 

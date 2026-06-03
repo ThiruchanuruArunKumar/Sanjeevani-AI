@@ -18,6 +18,8 @@ import {
   UserPlus,
 } from 'lucide-react';
 
+import { useIsMobile } from '../../services/platform';
+
 interface SearchPatientsProps {
   onNavigate: (view: string) => void;
 }
@@ -26,6 +28,7 @@ const BLOOD_GROUPS = ['All', 'A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
 const RISK_FILTERS = ['All', 'Critical', 'Stable'];
 
 export const SearchPatients: React.FC<SearchPatientsProps> = ({ onNavigate }) => {
+  const isMobile = useIsMobile();
   const [patients, setPatients] = useState<PatientProfile[]>([]);
   const [query, setQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -40,6 +43,13 @@ export const SearchPatients: React.FC<SearchPatientsProps> = ({ onNavigate }) =>
     const { user } = DatabaseService.getActiveSession();
     if (!user) return;
     
+    if (!isMobile) {
+      // Desktop: Search all patients in database
+      setPatients(DatabaseService.getPatients());
+      return;
+    }
+    
+    // Mobile: Search only assigned patients
     const appointments = DatabaseService.getAppointments().filter(a => a.doctorId === user.id);
     const visits = DatabaseService.getVisits().filter(v => v.doctorId === user.id);
     const patientIds = new Set([...appointments.map(a => a.patientId), ...visits.map(v => v.patientId)]);
@@ -59,7 +69,7 @@ export const SearchPatients: React.FC<SearchPatientsProps> = ({ onNavigate }) =>
     } catch { /* ignore */ }
 
     return () => unsub();
-  }, []);
+  }, [isMobile]);
 
   // Track recently viewed
   const openProfile = (id: string) => {
