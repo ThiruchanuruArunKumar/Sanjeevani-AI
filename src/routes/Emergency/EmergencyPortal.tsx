@@ -20,7 +20,7 @@ interface EmergencyPortalProps {
 }
 
 export const EmergencyPortal: React.FC<EmergencyPortalProps> = ({ patientIdQuery = '', onNavigate }) => {
-  const [patientId, setPatientId] = useState(patientIdQuery || 'SJV-PAT-000001');
+  const [patientId, setPatientId] = useState(patientIdQuery || '');
   const [patient, setPatient] = useState<PatientProfile | null>(null);
   
   // Quick Search bypass input
@@ -37,7 +37,7 @@ export const EmergencyPortal: React.FC<EmergencyPortalProps> = ({ patientIdQuery
       setPatientId(id);
       setSearchError('');
     } else {
-      setSearchError('Invalid Emergency Medical ID code. Try "SJV-PAT-000001" or "SJV-PAT-000002".');
+      setSearchError('Invalid Emergency Medical ID code. Please enter a valid registered ID.');
       setTimeout(() => setSearchError(''), 4000);
     }
   };
@@ -46,7 +46,10 @@ export const EmergencyPortal: React.FC<EmergencyPortalProps> = ({ patientIdQuery
     if (patientIdQuery) {
       loadPatient(patientIdQuery);
     } else {
-      loadPatient('SJV-PAT-000001'); // default to Rohan for preview
+      const allPats = DatabaseService.getPatients();
+      if (allPats.length > 0) {
+        loadPatient(allPats[0].id);
+      }
     }
   }, [patientIdQuery]);
 
@@ -129,7 +132,7 @@ export const EmergencyPortal: React.FC<EmergencyPortalProps> = ({ patientIdQuery
               Patient Bypass Search
             </h3>
             <p className="text-[11px] text-slate-400 leading-normal">
-              Type the patient's Sanjeevani ID to query critical vitals and allergies (e.g. <span className="text-teal-400 font-bold bg-slate-900 px-1.5 py-0.5 rounded">SJV-PAT-000001</span> or <span className="text-teal-400 font-bold bg-slate-900 px-1.5 py-0.5 rounded">SJV-PAT-000002</span>).
+              Type the patient's Sanjeevani ID to query critical vitals and allergies (e.g. <span className="text-teal-400 font-bold bg-slate-900 px-1.5 py-0.5 rounded">SJV-PAT-XXXXXX</span>).
             </p>
 
             <form onSubmit={handleLookup} className="space-y-3">
@@ -154,22 +157,17 @@ export const EmergencyPortal: React.FC<EmergencyPortalProps> = ({ patientIdQuery
 
           {/* Preset buttons */}
           <div className="flex gap-2">
-            <button 
-              onClick={() => loadPatient('SJV-PAT-000001')}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
-                patientId === 'SJV-PAT-000001' ? 'bg-rose-600/20 border-rose-500 text-rose-400' : 'bg-slate-800 border-slate-700 text-slate-400'
-              }`}
-            >
-              Rohan Sharma · SJV-PAT-000001
-            </button>
-            <button 
-              onClick={() => loadPatient('SJV-PAT-000002')}
-              className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
-                patientId === 'SJV-PAT-000002' ? 'bg-rose-600/20 border-rose-500 text-rose-400' : 'bg-slate-800 border-slate-700 text-slate-400'
-              }`}
-            >
-              Ananya Iyer · SJV-PAT-000002
-            </button>
+            {DatabaseService.getPatients().slice(0, 2).map((p) => (
+              <button 
+                key={p.id}
+                onClick={() => loadPatient(p.id)}
+                className={`flex-1 py-2 rounded-xl text-xs font-bold border transition-all ${
+                  patientId === p.id ? 'bg-rose-600/20 border-rose-500 text-rose-400' : 'bg-slate-800 border-slate-700 text-slate-400'
+                }`}
+              >
+                {p.name} · {p.id}
+              </button>
+            ))}
           </div>
         </div>
 

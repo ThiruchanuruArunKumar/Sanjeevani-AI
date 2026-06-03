@@ -20,7 +20,7 @@ interface UploadReportProps {
 
 export const UploadReport: React.FC<UploadReportProps> = ({ initialPatientId = '', onNavigate }) => {
   const [patients, setPatients] = useState<PatientProfile[]>([]);
-  const [selectedPatientId, setSelectedPatientId] = useState(initialPatientId || 'SJV-PAT-000001');
+  const [selectedPatientId, setSelectedPatientId] = useState(initialPatientId || '');
   
   const [reportTitle, setReportTitle] = useState('Comprehensive Renal Function Panel');
   const [category, setCategory] = useState<any>('Lab Report');

@@ -1,6 +1,6 @@
 // Under c:\Arun\SIMATS\PDD Sanjeevani Ai\src\routes\Shared\Profile.tsx
 import React, { useState, useEffect } from 'react';
-import { DatabaseService, DoctorProfile, PatientProfile, realtimeBroker } from '../../services/db';
+import { DatabaseService, DoctorProfile, PatientProfile, HospitalAdminProfile, realtimeBroker } from '../../services/db';
 import { 
   User, 
   Mail, 
@@ -38,6 +38,12 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
   const [patEmergencyName, setPatEmergencyName] = useState('');
   const [patEmergencyPhone, setPatEmergencyPhone] = useState('');
 
+  // Admin state
+  const [adminName, setAdminName] = useState('');
+  const [adminHospitalName, setAdminHospitalName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminAddress, setAdminAddress] = useState('');
+
   useEffect(() => {
     if (!user) return;
 
@@ -54,6 +60,12 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
       setPatPhone(pat.phone);
       setPatEmergencyName(pat.emergencyContact.name);
       setPatEmergencyPhone(pat.emergencyContact.phone);
+    } else if (role === 'admin') {
+      const adm = user as HospitalAdminProfile;
+      setAdminName(adm.adminName);
+      setAdminHospitalName(adm.hospitalName);
+      setAdminEmail(adm.email);
+      setAdminAddress(adm.address);
     }
   }, [user, role]);
 
@@ -123,6 +135,32 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
     }
   };
 
+  const handleSaveAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminName || !adminHospitalName || !adminEmail) {
+      setErrorMsg('Name, Hospital Name and Email fields are required.');
+      return;
+    }
+
+    const updatedAdmin: HospitalAdminProfile = {
+      ...user,
+      adminName,
+      hospitalName: adminHospitalName,
+      email: adminEmail,
+      address: adminAddress
+    };
+
+    // Save to localStorage
+    DatabaseService.updateAdminProfile(updatedAdmin);
+    
+    setSuccessMsg('Admin profile updated successfully.');
+    setErrorMsg('');
+
+    setTimeout(() => {
+      setSuccessMsg('');
+    }, 3000);
+  };
+
   if (!user) {
     return (
       <div className="text-center py-20">
@@ -132,7 +170,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
   }
 
   const handleBack = () => {
-    onNavigate(role === 'doctor' ? 'doctor/dashboard' : 'patient/dashboard');
+    if (role === 'doctor') onNavigate('doctor/dashboard');
+    else if (role === 'admin') onNavigate('admin/dashboard');
+    else onNavigate('patient/dashboard');
   };
 
   return (
@@ -155,7 +195,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
           <span className="cursor-pointer hover:text-primary dark:hover:text-teal-400" onClick={handleBack}>Dashboard</span>
           <ChevronRight className="h-3 w-3" />
           <span className="text-primary dark:text-teal-400">
-            {role === 'doctor' ? 'Doctor Profile' : 'Patient Profile'}
+            {role === 'doctor' ? 'Doctor Profile' : role === 'admin' ? 'Admin Profile' : 'Patient Profile'}
           </span>
         </div>
       </div>
@@ -193,9 +233,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
             </div>
 
             <div>
-              <h3 className="text-base font-extrabold text-slate-800">{user.name}</h3>
+              <h3 className="text-base font-extrabold text-slate-800">{role === 'admin' ? user.adminName : user.name}</h3>
               <span className="text-[10px] text-primary font-bold uppercase tracking-wider block mt-1">
-                {role === 'doctor' ? user.specialty : `Patient ID: ${user.id}`}
+                {role === 'doctor' ? user.specialty : role === 'admin' ? user.hospitalName : `Patient ID: ${user.id}`}
               </span>
             </div>
 
@@ -289,7 +329,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                 </button>
               </form>
             </div>
-          ) : (
+          ) : role === 'patient' ? (
             <div className="glass-card p-6 sm:p-8 rounded-3xl space-y-6">
               <h3 className="text-base font-black text-slate-800 border-b border-slate-100 pb-3">
                 Patient Account Details
@@ -388,6 +428,79 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
                 <button type="submit" className="btn-medical py-2.5 text-xs font-bold shadow-premium flex items-center justify-center gap-1.5 mt-2">
                   <Save className="h-4.5 w-4.5" />
                   Save Account Changes
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="glass-card p-6 sm:p-8 rounded-3xl space-y-6">
+              <h3 className="text-base font-black text-slate-800 border-b border-slate-100 pb-3">
+                Hospital Administration Details
+              </h3>
+
+              <form onSubmit={handleSaveAdmin} className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Administrator Name</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={adminName}
+                        onChange={(e) => setAdminName(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                        required
+                      />
+                      <User className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Name</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={adminHospitalName}
+                        onChange={(e) => setAdminHospitalName(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                        required
+                      />
+                      <Home className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Contact Email</label>
+                    <div className="relative">
+                      <input 
+                        type="email" 
+                        value={adminEmail}
+                        onChange={(e) => setAdminEmail(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                        required
+                      />
+                      <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Hospital Address</label>
+                    <div className="relative">
+                      <input 
+                        type="text" 
+                        value={adminAddress}
+                        onChange={(e) => setAdminAddress(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                        required
+                      />
+                      <Activity className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+
+                <button type="submit" className="btn-medical py-2.5 text-xs font-bold shadow-premium flex items-center justify-center gap-1.5 mt-4">
+                  <Save className="h-4.5 w-4.5" />
+                  Save Admin Settings
                 </button>
               </form>
             </div>

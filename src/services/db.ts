@@ -10,6 +10,14 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+export interface HospitalAdminProfile {
+  id: string;
+  hospitalName: string;
+  address: string;
+  adminName: string;
+  email: string;
+}
+
 export interface DoctorProfile {
   id: string;
   name: string;
@@ -17,6 +25,8 @@ export interface DoctorProfile {
   specialty: string;
   clinicName: string;
   avatarUrl?: string;
+  hospitalId?: string; // Links to HospitalAdminProfile.id
+  approvalStatus?: 'pending' | 'accepted' | 'rejected';
 }
 
 export interface PatientProfile {
@@ -25,6 +35,7 @@ export interface PatientProfile {
   age: number;
   phone: string;
   email: string;
+  address?: string;
   bloodGroup: string;
   allergies: PatientAllergy[];
   chronicConditions: string[];
@@ -32,8 +43,21 @@ export interface PatientProfile {
   emergencyContact: {
     name: string;
     phone: string;
+    email?: string;
+    address?: string;
   };
   vitals: PatientVitals;
+}
+
+export interface Appointment {
+  id: string;
+  patientId: string;
+  hospitalId: string;
+  doctorId?: string;
+  timeRange: string;
+  reason: string;
+  status: 'pending' | 'forwarded' | 'completed' | 'rejected';
+  createdAt: string;
 }
 
 export interface Prescription {
@@ -44,6 +68,16 @@ export interface Prescription {
   drugs: Drug[];
   instructions?: string;
   aiSafetyVerified: boolean;
+}
+
+export interface ConsultationFeedback {
+  id: string;
+  visitId: string;
+  patientId: string;
+  doctorId: string;
+  feedbackText: string;
+  rating: number;
+  date: string;
 }
 
 export interface ClinicalVisit {
@@ -57,6 +91,7 @@ export interface ClinicalVisit {
   diagnosis: string;
   notes: string;
   prescriptions?: Prescription;
+  feedbackId?: string;
 }
 
 export interface UploadedReport {
@@ -139,6 +174,12 @@ const SEED_PREDICTIONS: HealthRiskPrediction[] = [];
 
 const SEED_MEDICATION_LOGS: MedicationLog[] = [];
 
+const SEED_ADMINS: HospitalAdminProfile[] = [];
+
+const SEED_APPOINTMENTS: Appointment[] = [];
+
+const SEED_CONSULTATION_FEEDBACKS: ConsultationFeedback[] = [];
+
 // ----------------------------------------------------
 // Patient ID Generator — SJV-PAT-XXXXXX
 // ----------------------------------------------------
@@ -182,9 +223,9 @@ export class DatabaseService {
     this.isInitialized = true;
 
     // Force clear old demo data from browser cache for production launch
-    if (localStorage.getItem('sj_prod_launch_v1') !== 'true') {
+    if (localStorage.getItem('sj_prod_launch_v2') !== 'true') {
       localStorage.clear();
-      localStorage.setItem('sj_prod_launch_v1', 'true');
+      localStorage.setItem('sj_prod_launch_v2', 'true');
     }
 
     if (!localStorage.getItem('sj_doctor')) {
@@ -193,13 +234,16 @@ export class DatabaseService {
     if (!localStorage.getItem('sj_doctors_list')) {
       localStorage.setItem('sj_doctors_list', JSON.stringify([SEED_DOCTOR]));
     }
-    if (!localStorage.getItem('sj_patients')) {
+    const patients = localStorage.getItem('sj_patients');
+    if (!patients || patients === '[]') {
       localStorage.setItem('sj_patients', JSON.stringify(SEED_PATIENTS));
     }
-    if (!localStorage.getItem('sj_visits')) {
+    const visits = localStorage.getItem('sj_visits');
+    if (!visits || visits === '[]') {
       localStorage.setItem('sj_visits', JSON.stringify(SEED_VISITS));
     }
-    if (!localStorage.getItem('sj_reports')) {
+    const reports = localStorage.getItem('sj_reports');
+    if (!reports || reports === '[]') {
       localStorage.setItem('sj_reports', JSON.stringify(SEED_REPORTS));
     }
     if (!localStorage.getItem('sj_alerts')) {
@@ -216,6 +260,15 @@ export class DatabaseService {
     }
     if (!localStorage.getItem('sj_patient_counter')) {
       localStorage.setItem('sj_patient_counter', '2');
+    }
+    if (!localStorage.getItem('sj_admins')) {
+      localStorage.setItem('sj_admins', JSON.stringify(SEED_ADMINS));
+    }
+    if (!localStorage.getItem('sj_appointments')) {
+      localStorage.setItem('sj_appointments', JSON.stringify(SEED_APPOINTMENTS));
+    }
+    if (!localStorage.getItem('sj_consultation_feedbacks')) {
+      localStorage.setItem('sj_consultation_feedbacks', JSON.stringify(SEED_CONSULTATION_FEEDBACKS));
     }
 
     // Launch background asynchronous sync from Supabase
@@ -240,7 +293,9 @@ export class DatabaseService {
         { data: alerts, error: alertsError },
         { data: feedbacks, error: feedbacksError },
         { data: predictions, error: predictionsError },
-        { data: logs, error: logsError }
+        { data: logs, error: logsError },
+        { data: adminsList, error: adminsError },
+        { data: apts, error: aptsError }
       ] = await Promise.all([
         supabase.from('doctors').select('*'),
         supabase.from('patients').select('*'),
@@ -249,7 +304,9 @@ export class DatabaseService {
         supabase.from('alerts').select('*'),
         supabase.from('feedbacks').select('*'),
         supabase.from('predictions').select('*'),
-        supabase.from('medication_logs').select('*')
+        supabase.from('medication_logs').select('*'),
+        supabase.from('admins').select('*'),
+        supabase.from('appointments').select('*')
       ]);
 
       if (docsError) console.error('Error fetching doctors from Supabase:', docsError);
@@ -261,16 +318,43 @@ export class DatabaseService {
       if (predictionsError) console.error('Error fetching predictions from Supabase:', predictionsError);
       if (logsError) console.error('Error fetching medication logs from Supabase:', logsError);
 
+      if (adminsList && adminsList.length > 0) {
+        const mappedAdmins = adminsList.map((a: any) => ({
+          id: a.id,
+          hospitalName: a.hospital_name,
+          address: a.address,
+          adminName: a.admin_name,
+          email: a.email
+        }));
+        localStorage.setItem('sj_admins', JSON.stringify(mappedAdmins));
+      }
+
+
       // Hydrate local cache and sync to browser
       if (docs && docs.length > 0) {
-        const mappedDocs = docs.map(d => ({
-          id: d.id,
-          name: d.name,
-          email: d.email,
-          specialty: d.specialty,
-          clinicName: d.clinic_name,
-          avatarUrl: d.avatar_url
-        }));
+        const localDocs = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+        
+        const mappedDocs = docs.map(d => {
+          const localMatch = localDocs.find((ld: any) => ld.id === d.id);
+          return {
+            id: d.id,
+            name: d.name,
+            email: d.email,
+            specialty: d.specialty,
+            clinicName: d.clinic_name,
+            avatarUrl: d.avatar_url,
+            hospitalId: (d.hospital_id !== undefined && d.hospital_id !== null) ? d.hospital_id : localMatch?.hospitalId,
+            approvalStatus: (d.approval_status !== undefined && d.approval_status !== null) ? d.approval_status : localMatch?.approvalStatus
+          };
+        });
+
+        // Preserve strictly local doctors that failed to sync
+        localDocs.forEach((ld: any) => {
+          if (!mappedDocs.find(md => md.id === ld.id)) {
+            mappedDocs.push(ld);
+          }
+        });
+
         localStorage.setItem('sj_doctors_list', JSON.stringify(mappedDocs));
         
         // Also ensure a default doctor profile is set in sj_doctor if empty
@@ -280,7 +364,8 @@ export class DatabaseService {
         }
       }
 
-      if (pats) {
+      if (pats && pats.length > 0) {
+        const localPats = JSON.parse(localStorage.getItem('sj_patients') || '[]');
         const mappedPats = pats.map(p => ({
           id: p.id,
           name: p.name,
@@ -294,10 +379,19 @@ export class DatabaseService {
           emergencyContact: p.emergency_contact || { name: '', phone: '' },
           vitals: p.vitals || {}
         }));
-        localStorage.setItem('sj_patients', JSON.stringify(mappedPats));
+
+        // Merge: keep local-only patients that haven't synced yet
+        const mergedPats = [...mappedPats];
+        localPats.forEach((lp: any) => {
+          if (lp && lp.id && !mergedPats.find(mp => mp.id === lp.id)) {
+            mergedPats.push(lp);
+          }
+        });
+
+        localStorage.setItem('sj_patients', JSON.stringify(mergedPats));
       }
 
-      if (visits) {
+      if (visits && visits.length > 0) {
         const mappedVisits = visits.map(v => ({
           id: v.id,
           patientId: v.patient_id,
@@ -313,11 +407,32 @@ export class DatabaseService {
         localStorage.setItem('sj_visits', JSON.stringify(mappedVisits));
       }
 
-      if (reports) {
+      // Sync appointments from Supabase (ignore error if table doesn't exist yet)
+      if (!aptsError && apts && apts.length > 0) {
+        const localApts: Appointment[] = (JSON.parse(localStorage.getItem('sj_appointments') || '[]') as any[]).filter(Boolean);
+        const mappedApts: Appointment[] = apts.filter(Boolean).map((a: any) => ({
+          id: a.id,
+          patientId: a.patient_id,
+          hospitalId: a.hospital_id,
+          doctorId: a.doctor_id,
+          timeRange: a.time_range,
+          reason: a.reason,
+          status: a.status,
+          createdAt: a.created_at
+        }));
+        // Merge: remote wins for existing, keep local-only records
+        const merged = [...mappedApts];
+        localApts.forEach((la: Appointment) => {
+          if (la && la.id && !merged.find(ma => ma.id === la.id)) merged.push(la);
+        });
+        localStorage.setItem('sj_appointments', JSON.stringify(merged));
+      }
+
+      if (reports && reports.length > 0) {
         localStorage.setItem('sj_reports', JSON.stringify(reports));
       }
 
-      if (alerts) {
+      if (alerts && alerts.length > 0) {
         const mappedAlerts = alerts.map(a => ({
           id: a.id,
           patientId: a.patient_id,
@@ -332,7 +447,7 @@ export class DatabaseService {
         localStorage.setItem('sj_alerts', JSON.stringify(mappedAlerts));
       }
 
-      if (feedbacks) {
+      if (feedbacks && feedbacks.length > 0) {
         const mappedFeedbacks = feedbacks.map(f => ({
           id: f.id,
           patientId: f.patient_id,
@@ -350,7 +465,7 @@ export class DatabaseService {
         localStorage.setItem('sj_feedbacks', JSON.stringify(mappedFeedbacks));
       }
 
-      if (predictions) {
+      if (predictions && predictions.length > 0) {
         const mappedPredictions = predictions.map(p => ({
           predictionId: p.prediction_id,
           patientId: p.patient_id,
@@ -363,7 +478,7 @@ export class DatabaseService {
         localStorage.setItem('sj_predictions', JSON.stringify(mappedPredictions));
       }
 
-      if (logs) {
+      if (logs && logs.length > 0) {
         const mappedLogs = logs.map(l => ({
           id: l.id,
           patientId: l.patient_id,
@@ -394,6 +509,7 @@ export class DatabaseService {
       realtimeBroker.publish('feedbacks-update');
       realtimeBroker.publish('predictions-update');
       realtimeBroker.publish('medication-logs-update');
+      realtimeBroker.publish('doctors-update');
       
       console.log('Supabase sync complete. Application local cache fully hydrated.');
     } catch (e) {
@@ -432,37 +548,21 @@ export class DatabaseService {
       console.error('Error fetching doctor profile from DB:', dbError);
     }
 
-    let profile: DoctorProfile;
-
-    if (doc) {
-      profile = {
-        id: doc.id,
-        name: doc.name,
-        email: doc.email,
-        specialty: doc.specialty,
-        clinicName: doc.clinic_name,
-        avatarUrl: doc.avatar_url
-      };
-    } else {
-      // Fallback: If auth exists but database row is missing (create profile row)
-      profile = {
-        id: authData.user.id,
-        name: 'Dr. Aarav Mehta',
-        email: authData.user.email || email,
-        specialty: 'Cardiology & AI Drug Safety',
-        clinicName: 'Sanjeevani AI Digital Hospital, Block A',
-        avatarUrl: 'https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150&auto=format&fit=crop&q=80'
-      };
-
-      await supabase.from('doctors').upsert({
-        id: profile.id,
-        name: profile.name,
-        email: profile.email,
-        specialty: profile.specialty,
-        clinic_name: profile.clinicName,
-        avatar_url: profile.avatarUrl
-      });
+    if (!doc) {
+      await supabase.auth.signOut();
+      throw new Error('Access denied. This account is not registered as a Doctor.');
     }
+
+    const profile: DoctorProfile = {
+      id: doc.id,
+      name: doc.name,
+      email: doc.email,
+      specialty: doc.specialty,
+      clinicName: doc.clinic_name,
+      avatarUrl: doc.avatar_url,
+      hospitalId: doc.hospital_id,
+      approvalStatus: doc.approval_status
+    };
 
     // Cache the authenticated doctor
     localStorage.setItem('sj_doctor', JSON.stringify(profile));
@@ -471,7 +571,7 @@ export class DatabaseService {
 
     // Also update sj_doctors_list
     const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
-    const idx = doctors.findIndex((d: any) => d.id === profile.id);
+    const idx = doctors.findIndex((d: any) => d && d.id === profile.id);
     if (idx !== -1) {
       doctors[idx] = profile;
     } else {
@@ -482,7 +582,7 @@ export class DatabaseService {
     return profile;
   }
 
-  static async registerDoctor(name: string, email: string, specialty: string, clinic: string, password?: string): Promise<DoctorProfile> {
+  static async registerDoctor(name: string, email: string, specialty: string, clinic: string, password?: string, hospitalId?: string): Promise<DoctorProfile> {
     this.init();
 
     if (!password) {
@@ -511,7 +611,9 @@ export class DatabaseService {
       email,
       specialty,
       clinicName: clinic,
-      avatarUrl: 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&auto=format&fit=crop&q=80'
+      hospitalId,
+      approvalStatus: hospitalId ? 'pending' : undefined,
+      avatarUrl: ''
     };
 
     localStorage.setItem('sj_doctor', JSON.stringify(newDoc));
@@ -520,7 +622,7 @@ export class DatabaseService {
 
     // Update sj_doctors_list
     const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
-    const existsIdx = doctors.findIndex((d: any) => d.email.toLowerCase() === email.toLowerCase());
+    const existsIdx = doctors.findIndex((d: any) => d && d.email && d.email.toLowerCase() === email.toLowerCase());
     if (existsIdx !== -1) {
       doctors[existsIdx] = newDoc;
     } else {
@@ -535,7 +637,9 @@ export class DatabaseService {
       email: newDoc.email,
       specialty: newDoc.specialty,
       clinic_name: newDoc.clinicName,
-      avatar_url: newDoc.avatarUrl
+      avatar_url: newDoc.avatarUrl,
+      hospital_id: newDoc.hospitalId,
+      approval_status: newDoc.approvalStatus
     });
 
     if (dbError) {
@@ -552,7 +656,7 @@ export class DatabaseService {
 
     // Also update sj_doctors_list
     const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
-    const idx = doctors.findIndex((d: any) => d.id === doc.id);
+    const idx = doctors.findIndex((d: any) => d && d.id === doc.id);
     if (idx !== -1) {
       doctors[idx] = doc;
     } else {
@@ -589,11 +693,11 @@ export class DatabaseService {
     return { success: false, otp: '' };
   }
 
-  static loginPatient(phone: string, otp: string): PatientProfile | null {
+  static loginPatient(phone: string, password: string): PatientProfile | null {
     this.init();
     const patients = this.getPatients();
     const patient = patients.find(p => p.phone === phone);
-    if (patient && otp === '4582') {
+    if (patient && password.length > 0) {
       localStorage.setItem('sj_active_role', 'patient');
       localStorage.setItem('sj_active_user', JSON.stringify(patient));
       return patient;
@@ -698,10 +802,322 @@ export class DatabaseService {
     localStorage.removeItem('sj_active_user');
   }
 
-  static getActiveSession(): { role: 'doctor' | 'patient' | null; user: any } {
-    const role = localStorage.getItem('sj_active_role') as 'doctor' | 'patient' | null;
-    const user = JSON.parse(localStorage.getItem('sj_active_user') || 'null');
+  static getActiveSession(): { role: 'doctor' | 'patient' | 'admin' | null; user: any } {
+    const role = localStorage.getItem('sj_active_role') as 'doctor' | 'patient' | 'admin' | null;
+    let user = JSON.parse(localStorage.getItem('sj_active_user') || 'null');
+    
+    // Ensure migrations run if admin BEFORE returning user
+    if (role === 'admin') {
+      const admins = this.getAdmins(); // Triggers migration if needed
+      if (user && user.email) {
+        user = admins.find(a => a.email === user.email) || user;
+      }
+    }
+
+    // Cleanup legacy stock photos for existing sessions
+    if (user && typeof user.avatarUrl === 'string' && user.avatarUrl.includes('unsplash.com')) {
+      user.avatarUrl = '';
+      localStorage.setItem('sj_active_user', JSON.stringify(user));
+      
+      const sjDoctor = JSON.parse(localStorage.getItem('sj_doctor') || 'null');
+      if (sjDoctor && typeof sjDoctor.avatarUrl === 'string' && sjDoctor.avatarUrl.includes('unsplash.com')) {
+        sjDoctor.avatarUrl = '';
+        localStorage.setItem('sj_doctor', JSON.stringify(sjDoctor));
+      }
+    }
+    
     return { role, user };
+  }
+
+  // ----------------------------------------------------
+  // Hospital Admin Actions
+  // ----------------------------------------------------
+  static getAdmins(): HospitalAdminProfile[] {
+    this.init();
+    let admins: HospitalAdminProfile[] = JSON.parse(localStorage.getItem('sj_admins') || '[]');
+    admins = admins.filter(a => a !== null && a !== undefined);
+    let migrated = false;
+
+    // Auto-migrate old UUIDs to new format seamlessly
+    admins.forEach((admin) => {
+      if (admin.id && !admin.id.startsWith('SJV-HTPL-')) {
+        admin.id = `SJV-HTPL-${Math.floor(1000 + Math.random() * 9000)}`;
+        migrated = true;
+      }
+    });
+
+    if (migrated) {
+      localStorage.setItem('sj_admins', JSON.stringify(admins));
+      const activeUser = JSON.parse(localStorage.getItem('sj_active_user') || 'null');
+      if (activeUser && activeUser.adminName && !activeUser.id.startsWith('SJV-HTPL-')) {
+        const matchingAdmin = admins.find((a) => a.email === activeUser.email);
+        if (matchingAdmin) {
+          localStorage.setItem('sj_active_user', JSON.stringify(matchingAdmin));
+        }
+      }
+    }
+    
+    return admins;
+  }
+
+  static async registerAdmin(hospitalName: string, address: string, adminName: string, email: string, password?: string): Promise<HospitalAdminProfile> {
+    this.init();
+    if (!password) throw new Error('Password is required');
+    
+    const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+    if (authError) throw new Error(authError.message);
+    if (!authData.user) throw new Error('Admin registration failed');
+
+    const customId = `SJV-HTPL-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newAdmin: HospitalAdminProfile = {
+      id: customId,
+      hospitalName,
+      address,
+      adminName,
+      email
+    };
+
+    const admins = this.getAdmins();
+    admins.push(newAdmin);
+    localStorage.setItem('sj_admins', JSON.stringify(admins));
+
+    // Save to Supabase
+    const { error: dbError } = await supabase.from('admins').upsert({
+      id: newAdmin.id,
+      hospital_name: newAdmin.hospitalName,
+      address: newAdmin.address,
+      admin_name: newAdmin.adminName,
+      email: newAdmin.email
+    });
+    if (dbError) console.error('Supabase admin registration failed:', dbError);
+    
+    localStorage.setItem('sj_active_role', 'admin');
+    localStorage.setItem('sj_active_user', JSON.stringify(newAdmin));
+    return newAdmin;
+  }
+
+  static async updateAdminProfile(admin: HospitalAdminProfile) {
+    this.init();
+    const admins = this.getAdmins();
+    const idx = admins.findIndex(a => a.id === admin.id);
+    if (idx !== -1) {
+      admins[idx] = admin;
+      localStorage.setItem('sj_admins', JSON.stringify(admins));
+      localStorage.setItem('sj_active_user', JSON.stringify(admin));
+      
+      const { error: dbError } = await supabase.from('admins').upsert({
+        id: admin.id,
+        hospital_name: admin.hospitalName,
+        address: admin.address,
+        admin_name: admin.adminName,
+        email: admin.email
+      });
+      if (dbError) console.error('Supabase admin update failed:', dbError);
+    }
+  }
+
+  static async loginAdmin(email: string, password: string): Promise<HospitalAdminProfile | null> {
+    this.init();
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError) throw new Error(authError.message);
+    if (!authData.user) return null;
+
+    // Fetch the admin row from remote Supabase database first to guarantee a stable ID
+    const { data: dbAdmin } = await supabase
+      .from('admins')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (!dbAdmin) {
+      await supabase.auth.signOut();
+      throw new Error('Access denied. This account is not registered as a Hospital Admin.');
+    }
+
+    let admin: HospitalAdminProfile = {
+      id: dbAdmin.id,
+      hospitalName: dbAdmin.hospital_name,
+      address: dbAdmin.address,
+      adminName: dbAdmin.admin_name,
+      email: dbAdmin.email
+    };
+
+    // Update locally cached admins list
+    const admins = this.getAdmins();
+    const idx = admins.findIndex(a => a.email === email);
+    if (idx !== -1) {
+      admins[idx] = admin;
+    } else {
+      admins.push(admin);
+    }
+    localStorage.setItem('sj_admins', JSON.stringify(admins));
+
+    localStorage.setItem('sj_active_role', 'admin');
+    localStorage.setItem('sj_active_user', JSON.stringify(admin));
+    return admin;
+  }
+
+  static getDoctors(): DoctorProfile[] {
+    this.init();
+    let doctors: DoctorProfile[] = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    doctors = doctors.filter(d => d !== null && d !== undefined);
+    let migrated = false;
+    
+    // Auto-migrate orphaned doctors to the first available admin if they have an old UUID format
+    const admins = this.getAdmins();
+    if (admins.length > 0) {
+      doctors.forEach(doc => {
+        if (doc.hospitalId && !doc.hospitalId.startsWith('SJV-HTPL-')) {
+          doc.hospitalId = admins[0].id;
+          migrated = true;
+        }
+      });
+    }
+
+    if (migrated) {
+      localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+    }
+    
+    return doctors;
+  }
+
+  static updateDoctorApproval(doctorId: string, status: 'accepted' | 'rejected') {
+    const doctors = this.getDoctors();
+    const docIdx = doctors.findIndex(d => d.id === doctorId);
+    if (docIdx !== -1) {
+      doctors[docIdx].approvalStatus = status;
+      localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+      
+      // Update session if it's the current user
+      const activeUser = JSON.parse(localStorage.getItem('sj_active_user') || 'null');
+      if (activeUser && activeUser.id === doctorId) {
+        localStorage.setItem('sj_active_user', JSON.stringify(doctors[docIdx]));
+        localStorage.setItem('sj_doctor', JSON.stringify(doctors[docIdx]));
+      }
+      
+      // Persist approval_status to Supabase so it survives page refreshes
+      supabase.from('doctors').update({ approval_status: status }).eq('id', doctorId).then(({ error }) => {
+        if (error) console.error('Supabase doctor approval update failed:', error);
+        else console.log(`Doctor ${doctorId} approval_status set to '${status}' in Supabase`);
+      });
+      
+      realtimeBroker.publish('doctors-update');
+    }
+  }
+
+  // ----------------------------------------------------
+  // Appointment Actions
+  // ----------------------------------------------------
+  static getAppointments(): Appointment[] {
+    this.init();
+    const apts = JSON.parse(localStorage.getItem('sj_appointments') || '[]');
+    return (Array.isArray(apts) ? apts : []).filter(Boolean);
+  }
+
+  static requestAppointment(params: { patientId: string; hospitalId: string; timeRange: string; reason: string }): Appointment;
+  static requestAppointment(patientId: string, hospitalId: string, timeRange: string, reason: string): Appointment;
+  static requestAppointment(patientIdOrParams: string | { patientId: string; hospitalId: string; timeRange: string; reason: string }, hospitalId?: string, timeRange?: string, reason?: string): Appointment {
+    let patientId: string, hId: string, tRange: string, rsn: string;
+    if (typeof patientIdOrParams === 'object') {
+      patientId = patientIdOrParams.patientId;
+      hId = patientIdOrParams.hospitalId;
+      tRange = patientIdOrParams.timeRange;
+      rsn = patientIdOrParams.reason;
+    } else {
+      patientId = patientIdOrParams;
+      hId = hospitalId!;
+      tRange = timeRange!;
+      rsn = reason!;
+    }
+    const apts = this.getAppointments();
+    const newApt: Appointment = {
+      id: `apt_${Date.now()}`,
+      patientId,
+      hospitalId: hId,
+      timeRange: tRange,
+      reason: rsn,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    apts.unshift(newApt);
+    localStorage.setItem('sj_appointments', JSON.stringify(apts));
+
+    // Persist to Supabase
+    supabase.from('appointments').insert({
+      id: newApt.id,
+      patient_id: newApt.patientId,
+      hospital_id: newApt.hospitalId,
+      time_range: newApt.timeRange,
+      reason: newApt.reason,
+      status: newApt.status,
+      created_at: newApt.createdAt
+    }).then(({ error }) => {
+      if (error) console.error('Supabase appointment insert failed:', error);
+    });
+
+    realtimeBroker.publish('appointments-update');
+    return newApt;
+  }
+
+  static forwardAppointment(appointmentId: string, doctorId: string) {
+    const apts = this.getAppointments();
+    const aptIdx = apts.findIndex(a => a.id === appointmentId);
+    if (aptIdx !== -1) {
+      apts[aptIdx].doctorId = doctorId;
+      apts[aptIdx].status = 'forwarded';
+      localStorage.setItem('sj_appointments', JSON.stringify(apts));
+
+      // Persist to Supabase
+      supabase.from('appointments').update({ doctor_id: doctorId, status: 'forwarded' }).eq('id', appointmentId).then(({ error }) => {
+        if (error) console.error('Supabase appointment forward failed:', error);
+      });
+
+      realtimeBroker.publish('appointments-update');
+    }
+  }
+
+  static markAppointmentCompleted(appointmentId: string) {
+    const apts = this.getAppointments();
+    const aptIdx = apts.findIndex(a => a.id === appointmentId);
+    if (aptIdx !== -1) {
+      apts[aptIdx].status = 'completed';
+      localStorage.setItem('sj_appointments', JSON.stringify(apts));
+      realtimeBroker.publish('appointments-update');
+    }
+  }
+
+  // ----------------------------------------------------
+  // Consultation Feedback Actions
+  // ----------------------------------------------------
+  static getConsultationFeedbacks(): ConsultationFeedback[] {
+    this.init();
+    return JSON.parse(localStorage.getItem('sj_consultation_feedbacks') || '[]');
+  }
+
+  static addConsultationFeedback(visitId: string, patientId: string, doctorId: string, feedbackText: string, rating: number) {
+    const feedbacks = this.getConsultationFeedbacks();
+    const newFb: ConsultationFeedback = {
+      id: `cfb_${Date.now()}`,
+      visitId,
+      patientId,
+      doctorId,
+      feedbackText,
+      rating,
+      date: new Date().toISOString()
+    };
+    feedbacks.unshift(newFb);
+    localStorage.setItem('sj_consultation_feedbacks', JSON.stringify(feedbacks));
+
+    const visits = this.getVisits();
+    const vIdx = visits.findIndex(v => v.id === visitId);
+    if (vIdx !== -1) {
+      visits[vIdx].feedbackId = newFb.id;
+      localStorage.setItem('sj_visits', JSON.stringify(visits));
+    }
+
+    realtimeBroker.publish('consultation-feedbacks-update');
+    realtimeBroker.publish('visits-update');
   }
 
   // ----------------------------------------------------
@@ -727,6 +1143,8 @@ export class DatabaseService {
     address?: string;
     emergencyContactName: string;
     emergencyContactPhone: string;
+    emergencyContactEmail?: string;
+    emergencyContactAddress?: string;
     allergies: Array<{ allergen: string; severity: string; reaction: string }>;
     chronicConditions: string[];
   }): PatientProfile {
@@ -738,6 +1156,7 @@ export class DatabaseService {
       age: params.age,
       phone: params.phone,
       email: params.email,
+      address: params.address,
       bloodGroup: params.bloodGroup,
       allergies: params.allergies.map(a => ({
         allergen: a.allergen,
@@ -749,6 +1168,8 @@ export class DatabaseService {
       emergencyContact: {
         name: params.emergencyContactName,
         phone: params.emergencyContactPhone,
+        email: params.emergencyContactEmail,
+        address: params.emergencyContactAddress
       },
       vitals: {
         systolicBP: 120,
@@ -765,6 +1186,8 @@ export class DatabaseService {
     const patients = this.getPatients();
     patients.push(newPatient);
     localStorage.setItem('sj_patients', JSON.stringify(patients));
+    localStorage.setItem('sj_active_role', 'patient');
+    localStorage.setItem('sj_active_user', JSON.stringify(newPatient));
 
     // Supabase insert patient
     supabase.from('patients').insert({
@@ -855,7 +1278,8 @@ export class DatabaseService {
   // ----------------------------------------------------
   static getVisits(patientId?: string): ClinicalVisit[] {
     this.init();
-    const visits: ClinicalVisit[] = JSON.parse(localStorage.getItem('sj_visits') || '[]');
+    let visits: ClinicalVisit[] = JSON.parse(localStorage.getItem('sj_visits') || '[]');
+    visits = visits.filter(v => v !== null && v !== undefined);
     if (patientId) {
       return visits.filter(v => v.patientId === patientId).sort((a,b) => b.date.localeCompare(a.date));
     }
@@ -1032,7 +1456,8 @@ export class DatabaseService {
   // ----------------------------------------------------
   static getReports(patientId?: string): UploadedReport[] {
     this.init();
-    const reports: UploadedReport[] = JSON.parse(localStorage.getItem('sj_reports') || '[]');
+    let reports: UploadedReport[] = JSON.parse(localStorage.getItem('sj_reports') || '[]');
+    reports = reports.filter(r => r !== null && r !== undefined);
     if (patientId) {
       return reports.filter(r => r.patientId === patientId).sort((a,b) => b.date.localeCompare(a.date));
     }

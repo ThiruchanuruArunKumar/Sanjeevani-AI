@@ -210,3 +210,16 @@ body, .glass-card, .glass-nav, input, select, textarea, button, aside, header {
   @apply transition-colors duration-300;
 }
 
+@keyframes loading-bar {
+  0% { transform: translateX(-100%); }
+  50% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+/* Touch feedback and Material ripple helper */
+.active-ripple:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+

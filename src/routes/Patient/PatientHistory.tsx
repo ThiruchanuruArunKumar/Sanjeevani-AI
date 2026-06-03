@@ -22,6 +22,11 @@ export const PatientHistory: React.FC<PatientHistoryProps> = ({ onNavigate }) =>
   const [visits, setVisits] = useState<ClinicalVisit[]>([]);
   const [reports, setReports] = useState<UploadedReport[]>([]);
 
+  // Feedback State
+  const [feedbackVisitId, setFeedbackVisitId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState<number>(5);
+  const [feedbackText, setFeedbackText] = useState('');
+
   const loadData = () => {
     const { user } = DatabaseService.getActiveSession();
     if (user) {
@@ -118,6 +123,74 @@ export const PatientHistory: React.FC<PatientHistoryProps> = ({ onNavigate }) =>
                             </div>
                           </div>
                         )}
+
+                        <div className="border-t border-slate-200/60 pt-3 mt-3">
+                          {visit.feedbackId ? (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">
+                              <ShieldCheck className="h-3 w-3" /> Feedback Submitted
+                            </span>
+                          ) : feedbackVisitId === visit.id ? (
+                            <div className="bg-white p-3 border border-slate-200 rounded-xl space-y-3">
+                              <h5 className="text-[10px] font-bold text-slate-600 uppercase">Consultation Feedback</h5>
+                              <div>
+                                <label className="text-[10px] font-semibold text-slate-400 block mb-1">Rating (1-5)</label>
+                                <input 
+                                  type="number" 
+                                  min="1" max="5" 
+                                  value={feedbackRating}
+                                  onChange={(e) => setFeedbackRating(Number(e.target.value))}
+                                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-semibold text-slate-400 block mb-1">Feedback / Experience</label>
+                                <textarea 
+                                  value={feedbackText}
+                                  onChange={(e) => setFeedbackText(e.target.value)}
+                                  className="w-full px-3 py-1.5 border border-slate-200 rounded-lg text-sm"
+                                  rows={2}
+                                />
+                              </div>
+                              <div className="flex gap-2 justify-end">
+                                <button 
+                                  onClick={() => setFeedbackVisitId(null)}
+                                  className="px-3 py-1 text-xs font-bold text-slate-500 hover:text-slate-700"
+                                >
+                                  Cancel
+                                </button>
+                                <button 
+                                  onClick={() => {
+                                    if (feedbackText.trim() !== '') {
+                                      DatabaseService.addConsultationFeedback(
+                                        visit.id,
+                                        patient.id,
+                                        visit.doctorId,
+                                        feedbackText,
+                                        feedbackRating
+                                      );
+                                      setFeedbackVisitId(null);
+                                    }
+                                  }}
+                                  className="px-3 py-1 bg-primary text-white text-xs font-bold rounded-lg shadow-sm"
+                                >
+                                  Submit
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <button 
+                              onClick={() => {
+                                setFeedbackVisitId(visit.id);
+                                setFeedbackRating(5);
+                                setFeedbackText('');
+                              }}
+                              className="text-[10px] font-bold text-primary hover:underline flex items-center gap-1"
+                            >
+                              <Stethoscope className="h-3 w-3" /> Provide Doctor Feedback
+                            </button>
+                          )}
+                        </div>
+
                       </div>
                     </div>
 

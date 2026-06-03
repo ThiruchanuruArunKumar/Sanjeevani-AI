@@ -1,7 +1,7 @@
 // Under c:\Arun\SIMATS\PDD Sanjeevani Ai\src\routes\Public\DoctorAuth.tsx
 import React, { useState } from 'react';
 import { DatabaseService } from '../../services/db';
-import { Stethoscope, Lock, Mail, User, ShieldAlert, Award, Home, Compass } from 'lucide-react';
+import { Stethoscope, Lock, Mail, User, ShieldAlert, Award, Home, Compass, Eye, EyeOff } from 'lucide-react';
 
 interface DoctorAuthProps {
   onNavigate: (view: string) => void;
@@ -9,11 +9,13 @@ interface DoctorAuthProps {
 
 export const DoctorAuth: React.FC<DoctorAuthProps> = ({ onNavigate }) => {
   const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('doctor@sanjeevani.ai');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-  const [specialty, setSpecialty] = useState('Cardiology & AI Pharmacology');
-  const [clinic, setClinic] = useState('Sanjeevani AI Hospital, Block C');
+  const [specialty, setSpecialty] = useState('');
+  const [clinic, setClinic] = useState('');
+  const [hospitalId, setHospitalId] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,15 +34,15 @@ export const DoctorAuth: React.FC<DoctorAuthProps> = ({ onNavigate }) => {
         setError(err.message || 'Login failed. Please check your internet connection or credentials.');
       }
     } else {
-      if (!name || !email || !password) {
-        setError('Please fill in Name, Email address, and Password.');
+      if (!name || !email || !password || !hospitalId) {
+        setError('Please fill in Name, Hospital ID, Email address, and Password.');
         return;
       }
       try {
-        await DatabaseService.registerDoctor(name, email, specialty, clinic, password);
+        await DatabaseService.registerDoctor(name, email, specialty, clinic, password, hospitalId.trim());
         onNavigate('doctor/dashboard');
       } catch (err: any) {
-        setError(err.message || 'Registration failed. Try using a stronger password.');
+        setError(err.message || 'Registration failed. Check if Hospital ID is valid.');
       }
     }
   };
@@ -58,7 +60,7 @@ export const DoctorAuth: React.FC<DoctorAuthProps> = ({ onNavigate }) => {
           <div className="text-center mb-8">
             <img src="/logo.png" alt="Sanjeevani AI" className="h-16 w-auto object-contain mx-auto mb-4" />
             <h2 className="text-2xl font-black text-slate-800 leading-tight">
-              {isLogin ? 'Clinician Gateway' : 'Register Clinical Profile'}
+              {isLogin ? 'Doctor Login' : 'Register as Doctor'}
             </h2>
             <p className="text-xs text-slate-400 mt-1.5 leading-relaxed">
               {isLogin 
@@ -111,6 +113,20 @@ export const DoctorAuth: React.FC<DoctorAuthProps> = ({ onNavigate }) => {
                     <Home className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
                   </div>
                 </div>
+
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Hospital ID (From Admin)</label>
+                  <div className="relative">
+                    <input 
+                      type="text" 
+                      placeholder="e.g. 84b2..." 
+                      value={hospitalId}
+                      onChange={(e) => setHospitalId(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-primary bg-white/50"
+                    />
+                    <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                  </div>
+                </div>
               </>
             )}
 
@@ -132,13 +148,20 @@ export const DoctorAuth: React.FC<DoctorAuthProps> = ({ onNavigate }) => {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Password</label>
               <div className="relative">
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   placeholder="••••••••" 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-primary bg-white/50"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-primary bg-white/50"
                 />
                 <Lock className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600 focus:outline-none"
+                >
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 
@@ -149,15 +172,7 @@ export const DoctorAuth: React.FC<DoctorAuthProps> = ({ onNavigate }) => {
               </div>
             )}
 
-            {isLogin && (
-              <div className="p-3 bg-teal-50/60 text-slate-600 rounded-xl border border-teal-500/10 text-[11px] leading-relaxed font-medium">
-                <span className="font-bold text-primary block">Supabase Authentication Enabled:</span>
-                Log in with your registered clinician credentials. For quick testing, you can use:
-                <div className="mt-1 font-semibold text-slate-800 bg-slate-100/80 px-2 py-1 rounded select-all font-mono">
-                  doctor@sanjeevani.ai / password123
-                </div>
-              </div>
-            )}
+
 
             <button type="submit" className="w-full btn-medical py-3 font-bold text-sm shadow-premium mt-2">
               {isLogin ? 'Sign In as Doctor' : 'Submit Credentials'}

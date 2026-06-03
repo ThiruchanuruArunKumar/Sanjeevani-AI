@@ -1,6 +1,6 @@
 // src/routes/Patient/PatientDashboard.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { DatabaseService, PatientProfile, ClinicalVisit, realtimeBroker } from '../../services/db';
+import { DatabaseService, PatientProfile, ClinicalVisit, realtimeBroker, HospitalAdminProfile } from '../../services/db';
 import { AISafetyEngine } from '../../services/ai';
 import {
   Activity,
@@ -136,6 +136,14 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
   const [adherenceScore, setAdherenceScore] = useState<number>(100);
   const [todayLogs, setTodayLogs] = useState<any[]>([]);
 
+  // Appointment Booking State
+  const [showBooking, setShowBooking] = useState(false);
+  const [hospitals, setHospitals] = useState<HospitalAdminProfile[]>([]);
+  const [bookHospitalId, setBookHospitalId] = useState('');
+  const [bookReason, setBookReason] = useState('');
+  const [bookTimeRange, setBookTimeRange] = useState('');
+  const [bookingSuccess, setBookingSuccess] = useState(false);
+
   const loadData = () => {
     const { user } = DatabaseService.getActiveSession();
     if (!user) return;
@@ -177,6 +185,8 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
 
     const todayStr = new Date().toISOString().split('T')[0];
     setTodayLogs(logs.filter(l => l.date === todayStr));
+
+    setHospitals(DatabaseService.getAdmins());
   };
 
   useEffect(() => {
@@ -1224,6 +1234,13 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
           <div className="glass-card p-5 rounded-2xl space-y-3">
             <h4 className="text-xs font-black text-slate-700 uppercase tracking-wide">Quick Actions</h4>
             <button
+              onClick={() => setShowBooking(true)}
+              className="w-full flex items-center justify-between px-4 py-3 bg-teal-50 hover:bg-teal-100 border border-teal-200 hover:border-teal-300 rounded-xl text-xs font-bold text-teal-800 transition-all"
+            >
+              <span className="flex items-center gap-2"><Calendar className="h-4 w-4" />Book Appointment</span>
+              <span className="text-teal-400">→</span>
+            </button>
+            <button
               onClick={() => onNavigate('patient/history')}
               className="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-teal-50 border border-slate-100 hover:border-teal-500/20 rounded-xl text-xs font-bold text-slate-700 hover:text-primary transition-all"
             >
@@ -1240,6 +1257,105 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
           </div>
         </div>
       </div>
+
+      {/* Appointment Booking Modal */}
+      {showBooking && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl animate-fade-in border border-slate-200">
+            {bookingSuccess ? (
+              <div className="text-center py-6">
+                <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Check className="h-8 w-8" />
+                </div>
+                <h3 className="text-xl font-black text-slate-800">Appointment Requested!</h3>
+                <p className="text-sm text-slate-500 mt-2">The hospital receptionist will review and assign your request to an available doctor.</p>
+                <button 
+                  onClick={() => { setShowBooking(false); setBookingSuccess(false); }}
+                  className="mt-6 btn-medical py-2.5 px-6 font-bold text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-lg font-black text-slate-800 mb-2">Book Hospital Appointment</h3>
+                <p className="text-xs text-slate-500 mb-6">Select a hospital and time range for your consultation request.</p>
+                
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!bookHospitalId || !bookReason || !bookTimeRange) return;
+                  DatabaseService.requestAppointment({
+                    patientId: patient.id,
+                    hospitalId: bookHospitalId,
+                    reason: bookReason,
+                    timeRange: bookTimeRange
+                  });
+                  setBookingSuccess(true);
+                  setBookHospitalId('');
+                  setBookReason('');
+                  setBookTimeRange('');
+                }} className="space-y-4">
+                  
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Hospital</label>
+                    <select 
+                      value={bookHospitalId}
+                      onChange={(e) => setBookHospitalId(e.target.value)}
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                      required
+                    >
+                      <option value="" disabled>-- Select a hospital --</option>
+                      {hospitals.map(h => (
+                        <option key={h.id} value={h.id}>{h.hospitalName}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Reason for visit / Disease</label>
+                    <input 
+                      type="text" 
+                      value={bookReason}
+                      onChange={(e) => setBookReason(e.target.value)}
+                      placeholder="e.g. Fever and dry cough for 3 days"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                      required
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Time Range</label>
+                    <input 
+                      type="text" 
+                      value={bookTimeRange}
+                      onChange={(e) => setBookTimeRange(e.target.value)}
+                      placeholder="e.g. Today 2:00 PM - 4:00 PM"
+                      className="w-full px-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
+                      required
+                    />
+                  </div>
+
+                  <div className="flex gap-3 pt-4">
+                    <button 
+                      type="button" 
+                      onClick={() => setShowBooking(false)}
+                      className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-bold text-sm hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      className="flex-1 btn-medical py-2.5 font-bold text-sm"
+                    >
+                      Send Request
+                    </button>
+                  </div>
+                </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

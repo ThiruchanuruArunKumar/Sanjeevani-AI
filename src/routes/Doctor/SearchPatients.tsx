@@ -36,7 +36,17 @@ export const SearchPatients: React.FC<SearchPatientsProps> = ({ onNavigate }) =>
   const [showRegisterModal, setShowRegisterModal] = useState(false);
 
   // Load patients + subscribe to realtime updates
-  const loadPatients = () => setPatients(DatabaseService.getPatients());
+  const loadPatients = () => {
+    const { user } = DatabaseService.getActiveSession();
+    if (!user) return;
+    
+    const appointments = DatabaseService.getAppointments().filter(a => a.doctorId === user.id);
+    const visits = DatabaseService.getVisits().filter(v => v.doctorId === user.id);
+    const patientIds = new Set([...appointments.map(a => a.patientId), ...visits.map(v => v.patientId)]);
+    
+    const allPatients = DatabaseService.getPatients();
+    setPatients(allPatients.filter(p => patientIds.has(p.id)));
+  };
 
   useEffect(() => {
     loadPatients();

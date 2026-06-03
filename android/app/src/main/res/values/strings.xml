@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sanjeevani AI</string>
+    <string name="title_activity_main">Sanjeevani AI</string>
+    <string name="package_name">com.sanjeevaniai.healthcare</string>
+    <string name="custom_url_scheme">com.sanjeevaniai.healthcare</string>
+</resources>

@@ -1,6 +1,7 @@
 // Under c:\Arun\SIMATS\PDD Sanjeevani Ai\src\routes\Public\Welcome.tsx
 import React, { useState } from 'react';
 import { AISafetyEngine, Drug } from '../../services/ai';
+import { DatabaseService } from '../../services/db';
 import { 
   Stethoscope, 
   Activity, 
@@ -46,11 +47,11 @@ export const Welcome: React.FC<WelcomeProps> = ({ onNavigate }) => {
 
   const handleEmergencyLookup = (e: React.FormEvent) => {
     e.preventDefault();
-    const validIds = ['SJV-PAT-000001', 'SJV-PAT-000002'];
-    if (validIds.includes(quickLookupId.trim())) {
-      onNavigate(`emergency/details?id=${quickLookupId.trim()}`);
+    const lookupId = quickLookupId.trim();
+    if (DatabaseService.getPatientById(lookupId)) {
+      onNavigate(`emergency/details?id=${lookupId}`);
     } else {
-      setLookupError('Invalid Patient ID. Try "SJV-PAT-000001" or "SJV-PAT-000002".');
+      setLookupError('Invalid Patient ID. Please enter a valid registered ID.');
       setTimeout(() => setLookupError(''), 4000);
     }
   };
@@ -65,6 +66,12 @@ export const Welcome: React.FC<WelcomeProps> = ({ onNavigate }) => {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button 
+            onClick={() => onNavigate('admin/login')} 
+            className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-all"
+          >
+            Hospital Admin
+          </button>
           <button 
             onClick={() => onNavigate('doctor/login')} 
             className="px-4 py-2 text-sm font-bold text-primary hover:bg-teal-50 rounded-xl transition-all"
@@ -132,7 +139,7 @@ export const Welcome: React.FC<WelcomeProps> = ({ onNavigate }) => {
               <div className="flex gap-2">
                 <input 
                   type="text" 
-                  placeholder='Enter Patient ID (e.g. SJV-PAT-000001)' 
+                  placeholder='Enter Patient ID (e.g. SJV-PAT-XXXXXX)' 
                   value={quickLookupId}
                   onChange={(e) => setQuickLookupId(e.target.value)}
                   className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-primary text-sm font-semibold"
