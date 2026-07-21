@@ -1,4 +1,4 @@
-name: 100-Virtual User Baseline Load Tests
+name: Load Tests
 
 on:
   push:
