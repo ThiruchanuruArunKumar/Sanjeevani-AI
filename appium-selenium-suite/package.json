@@ -1,0 +1,14 @@
+{
+  "name": "sanjeevani-appium-selenium-suite",
+  "version": "2.0.0",
+  "type": "module",
+  "scripts": {
+    "test:all": "mocha tests/*.test.js --timeout 45000 && node generate-excel-report.js",
+    "generate-report": "node generate-excel-report.js"
+  },
+  "devDependencies": {
+    "exceljs": "^4.4.0",
+    "mocha": "^11.1.0",
+    "selenium-webdriver": "^4.28.0"
+  }
+}
