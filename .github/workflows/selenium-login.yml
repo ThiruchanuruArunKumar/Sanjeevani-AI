@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Setup Chrome Browser
+        uses: browser-actions/setup-chrome@v1
+
       - name: Install Project Dependencies
         run: npm install
 
