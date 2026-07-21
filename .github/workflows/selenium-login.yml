@@ -25,13 +25,10 @@ jobs:
       - name: Build Application
         run: npm run build
 
-      - name: Start Preview Server in Background
-        run: npx vite preview --port 5173 &
-
-      - name: Wait for Server Availability
-        run: npx --yes wait-on http://127.0.0.1:5173 --timeout 30000
-
-      - name: Execute Selenium E2E Tests
+      - name: Start Server and Run Selenium E2E Tests
         env:
           TEST_URL: http://127.0.0.1:5173
-        run: npm run login
+        run: |
+          npx vite preview --host 0.0.0.0 --port 5173 &
+          npx --yes wait-on http://127.0.0.1:5173 --timeout 30000
+          npm run login
