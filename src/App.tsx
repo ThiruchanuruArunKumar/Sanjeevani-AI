@@ -37,8 +37,18 @@ export const App: React.FC = () => {
   const [showSplash, setShowSplash] = useState<boolean>(() => {
     return window.innerWidth < 768 || isCapacitorAndroid();
   });
+  const getCleanPath = () => {
+    let path = window.location.pathname.substring(1);
+    if (path.startsWith('Sanjeevani-AI/')) {
+      path = path.replace('Sanjeevani-AI/', '');
+    } else if (path === 'Sanjeevani-AI') {
+      path = '';
+    }
+    return path;
+  };
+
   const [currentView, setCurrentView] = useState<string>(() => {
-    const path = window.location.pathname.substring(1);
+    const path = getCleanPath();
     if (path) return path;
     const initialMobile = window.innerWidth < 768 || isCapacitorAndroid();
     return initialMobile ? 'role-selection' : 'welcome';
@@ -51,7 +61,7 @@ export const App: React.FC = () => {
 
   useEffect(() => {
     const handlePopState = () => {
-      const path = window.location.pathname.substring(1);
+      const path = getCleanPath();
       const currentMobile = window.innerWidth < 768 || isCapacitorAndroid();
       const defaultView = currentMobile ? 'role-selection' : 'welcome';
       setCurrentView(path || defaultView);
@@ -84,7 +94,8 @@ export const App: React.FC = () => {
   const handleNavigate = (view: string) => {
     setCurrentView(view);
     const defaultView = isMobile ? 'role-selection' : 'welcome';
-    const urlPath = view === defaultView ? '/' : `/${view}`;
+    const basePath = window.location.pathname.includes('Sanjeevani-AI') ? '/Sanjeevani-AI' : '';
+    const urlPath = view === defaultView ? `${basePath}/` : `${basePath}/${view}`;
     if (window.location.pathname !== urlPath) {
       window.history.pushState({}, '', urlPath);
     }
