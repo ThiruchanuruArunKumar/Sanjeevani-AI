@@ -10,6 +10,14 @@ export async function generateExcelReport(targetUrl = 'https://thiruchanuruarunk
   workbook.lastModifiedBy = 'Automated Appium & Selenium E2E Test Suite';
   workbook.created = new Date();
 
+  // Make Tab 2 (E2E Test Execution Matrix) the default active tab when opened in Excel
+  workbook.views = [
+    {
+      x: 0, y: 0, width: 10000, height: 20000,
+      firstSheet: 0, activeTab: 1, visibility: 'visible'
+    }
+  ];
+
   // ---------------------------------------------------------------------------
   // TAB 1: EXECUTIVE SUMMARY
   // ---------------------------------------------------------------------------
@@ -18,8 +26,8 @@ export async function generateExcelReport(targetUrl = 'https://thiruchanuruarunk
   });
 
   summarySheet.columns = [
-    { header: 'Metric', key: 'metric', width: 35 },
-    { header: 'Value', key: 'value', width: 45 }
+    { header: 'Metric', key: 'metric', width: 45 },
+    { header: 'Value', key: 'value', width: 55 }
   ];
 
   // Header styling
@@ -32,6 +40,7 @@ export async function generateExcelReport(targetUrl = 'https://thiruchanuruarunk
   const passRate = '100.0%';
 
   const summaryData = [
+    { metric: '📋 VIEW ALL 325 TEST CASES', value: '👉 Click the "E2E Test Execution Matrix" tab at the bottom of Excel!' },
     { metric: 'Project Name', value: 'Sanjeevani AI - Healthcare & Drug Safety Engine' },
     { metric: 'Target Application URL', value: targetUrl },
     { metric: 'Execution Timestamp', value: new Date().toLocaleString() },
@@ -49,7 +58,10 @@ export async function generateExcelReport(targetUrl = 'https://thiruchanuruarunk
 
   summaryData.forEach(row => {
     const addedRow = summarySheet.addRow(row);
-    if (row.metric === 'Overall Pass Rate' || row.metric === 'Passed Test Cases') {
+    if (row.metric === '📋 VIEW ALL 325 TEST CASES') {
+      addedRow.font = { bold: true, color: { argb: '1E3A8A' }, size: 12 };
+      addedRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'DBEAFE' } };
+    } else if (row.metric === 'Overall Pass Rate' || row.metric === 'Passed Test Cases') {
       addedRow.font = { bold: true, color: { argb: '047857' } }; // Emerald green
     }
   });
@@ -57,6 +69,7 @@ export async function generateExcelReport(targetUrl = 'https://thiruchanuruarunk
   // ---------------------------------------------------------------------------
   // TAB 2: DETAILED TEST SUITE MATRIX (325 TEST CASES)
   // ---------------------------------------------------------------------------
+
   const detailsSheet = workbook.addWorksheet('E2E Test Execution Matrix', {
     views: [{ showGridLines: true }]
   });
