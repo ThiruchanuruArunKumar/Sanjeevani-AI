@@ -9,6 +9,8 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Repository
@@ -28,12 +30,12 @@ jobs:
 
       - name: Start Background Server for E2E Testing
         run: |
-          npx vite preview --port 5173 &
-          npx wait-on http://localhost:5173 --timeout 30000
+          npx vite preview --host 0.0.0.0 --port 5173 &
+          npx --yes wait-on http://127.0.0.1:5173 --timeout 30000
 
       - name: Execute Selenium E2E Tests (Headless Chrome)
         env:
-          TEST_URL: http://localhost:5173
+          TEST_URL: http://127.0.0.1:5173
         run: npm run login
 
       - name: Deploy to GitHub Pages (Main Branch Only)
