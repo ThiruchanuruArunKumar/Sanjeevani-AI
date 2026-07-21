@@ -1,0 +1,16 @@
+{
+  "testName": "Baseline Load Test (100 Virtual Users / 1 Minute)",
+  "targetUrl": "https://thiruchanuruarunkumar.github.io/Sanjeevani-AI/",
+  "virtualUsers": 100,
+  "durationSeconds": 10,
+  "totalRequests": 758,
+  "requestsPerSecond": 76,
+  "successRate": "0.0%",
+  "latencyMs": {
+    "average": 914,
+    "min": 25,
+    "max": 9343,
+    "p99": 8041
+  },
+  "timestamp": "2026-07-21T15:22:20.253Z"
+}

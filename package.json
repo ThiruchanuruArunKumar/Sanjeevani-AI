@@ -14,6 +14,7 @@
     "login": "mocha selenium-tests/tests/login.test.js --timeout 30000",
     "test:e2e": "mocha selenium-tests/tests/*.test.js --timeout 30000",
     "test:appium": "mocha appium-selenium-suite/tests/*.test.js --timeout 45000 && node appium-selenium-suite/generate-excel-report.js",
+    "test:load": "node load-tests/baseline-load-test.js",
     "generate-report": "node appium-selenium-suite/generate-excel-report.js"
   },
   "dependencies": {
@@ -35,6 +36,7 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "autocannon": "^8.0.0",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
