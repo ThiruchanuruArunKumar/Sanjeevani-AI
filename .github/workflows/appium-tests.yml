@@ -36,7 +36,16 @@ jobs:
           npx --yes wait-on http://127.0.0.1:5173 --timeout 30000
           npm run test:appium
 
-      - name: Generate Appium Test Summary
+      - name: Upload Excel Test Execution Report Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: E2E-Excel-300-Test-Execution-Report
+          path: |
+            E2E_Test_Execution_Report.xlsx
+            appium-selenium-suite/E2E_Test_Execution_Report.xlsx
+
+      - name: Generate Appium Test Summary with Direct Excel Download Link
         if: always()
         run: |
           echo "## 📱 Appium Mobile & Multi-Tab Execution Summary" >> $GITHUB_STEP_SUMMARY
@@ -46,3 +55,14 @@ jobs:
           echo "| Appium Mobile Viewport & Role Cards | ✅ PASSED | Appium Engine (Pixel 7) |" >> $GITHUB_STEP_SUMMARY
           echo "| Multi-Tab Doctor & Patient Cross-Sync | ✅ PASSED | Multi-Tab Browser |" >> $GITHUB_STEP_SUMMARY
           echo "| Native Android APK Capabilities | ✅ PASSED | UiAutomator2 Engine |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 300+ Test Cases Excel Report Download Instructions" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **GitHub Actions Artifact**: The Excel file (\`E2E_Test_Execution_Report.xlsx\`) containing all 300+ detailed test cases is attached directly to this workflow run!" >> $GITHUB_STEP_SUMMARY
+          echo "👇 **How to Download:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Scroll to the top or bottom of this GitHub Action summary page." >> $GITHUB_STEP_SUMMARY
+          echo "2. Look for the **Artifacts** section." >> $GITHUB_STEP_SUMMARY
+          echo "3. Click on **\`E2E-Excel-300-Test-Execution-Report\`** to download the ZIP file containing your Excel report." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📥 **Direct Repository Link**: [👉 Click Here to View E2E_Test_Execution_Report.xlsx on Repo](https://github.com/ThiruchanuruArunKumar/Sanjeevani-AI/blob/main/E2E_Test_Execution_Report.xlsx)" >> $GITHUB_STEP_SUMMARY
+
