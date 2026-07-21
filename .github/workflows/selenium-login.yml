@@ -1,4 +1,4 @@
-name: Sanjeevani AI CI/CD, Selenium & Appium E2E Tests
+name: Sanjeevani AI CI/CD, Selenium, Appium & Load Testing
 
 on:
   push:
