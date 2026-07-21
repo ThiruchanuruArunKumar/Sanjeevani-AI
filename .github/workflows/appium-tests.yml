@@ -1,4 +1,4 @@
-name: Appium Tests
+name: Appium Mobile & APK Tests
 
 on:
   push:
