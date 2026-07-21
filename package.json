@@ -3,11 +3,16 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "homepage": "https://ThiruchanuruArunKumar.github.io/Sanjeevani-AI",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist",
+    "login": "mocha selenium-tests/tests/login.test.js --timeout 30000",
+    "test:e2e": "mocha selenium-tests/tests/*.test.js --timeout 30000"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
@@ -28,10 +33,14 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "chromedriver": "^133.0.0",
     "eslint": "^10.3.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "eslint-plugin-react-refresh": "^0.5.2",
+    "gh-pages": "^6.3.0",
     "globals": "^17.6.0",
+    "mocha": "^11.1.0",
+    "selenium-webdriver": "^4.28.0",
     "typescript": "~6.0.2",
     "typescript-eslint": "^8.59.2",
     "vite": "^8.0.12"

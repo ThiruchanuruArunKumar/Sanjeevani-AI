@@ -1,0 +1,13 @@
+{
+  "name": "sanjeevani-selenium-tests",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "mocha tests/*.test.js --timeout 30000"
+  },
+  "devDependencies": {
+    "chromedriver": "^133.0.0",
+    "mocha": "^11.1.0",
+    "selenium-webdriver": "^4.28.0"
+  }
+}

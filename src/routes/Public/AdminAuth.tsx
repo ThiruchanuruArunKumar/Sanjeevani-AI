@@ -117,6 +117,7 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
               <label className="text-[10px] font-bold text-slate-400 uppercase">Email Address</label>
               <div className="relative">
                 <input 
+                  id="email"
                   type="email" 
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
@@ -130,6 +131,7 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
               <label className="text-[10px] font-bold text-slate-400 uppercase">Password</label>
               <div className="relative">
                 <input 
+                  id="password"
                   type={showPassword ? "text" : "password"} 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -153,7 +155,7 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
               </div>
             )}
 
-            <button type="submit" className="w-full btn-medical py-3 font-bold text-sm mt-2 flex items-center justify-center gap-2">
+            <button id="login-button" type="submit" className="w-full btn-medical py-3 font-bold text-sm mt-2 flex items-center justify-center gap-2">
               {isLogin ? 'Login to Dashboard' : 'Register Hospital'}
               <ArrowRight className="h-4 w-4" />
             </button>

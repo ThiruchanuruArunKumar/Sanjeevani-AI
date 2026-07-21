@@ -1,0 +1,46 @@
+name: Sanjeevani AI CI/CD & Selenium E2E Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js Environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Project Dependencies
+        run: npm ci
+
+      - name: Build Application
+        run: npm run build
+
+      - name: Start Background Server for E2E Testing
+        run: |
+          npx vite preview --port 5173 &
+          npx wait-on http://localhost:5173 --timeout 30000
+
+      - name: Execute Selenium E2E Tests (Headless Chrome)
+        env:
+          TEST_URL: http://localhost:5173
+        run: npm run login
+
+      - name: Deploy to GitHub Pages (Main Branch Only)
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm run deploy

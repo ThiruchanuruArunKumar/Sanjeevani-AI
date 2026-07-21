@@ -237,6 +237,7 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({ onNavigate }) => {
               </label>
               <div className="relative">
                 <input 
+                  id="phone"
                   type="tel" 
                   placeholder="9876543210" 
                   value={phone}
@@ -251,6 +252,7 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({ onNavigate }) => {
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block">Password</label>
               <div className="relative">
                 <input 
+                  id="password"
                   type={showPassword ? "text" : "password"} 
                   placeholder="••••••••" 
                   value={password}
@@ -275,7 +277,7 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({ onNavigate }) => {
               </div>
             )}
 
-            <button type="submit" className="w-full btn-medical py-3 font-bold text-sm shadow-premium mt-2">
+            <button id="login-button" type="submit" className="w-full btn-medical py-3 font-bold text-sm shadow-premium mt-2">
               {isLogin ? 'Sign In as Patient' : 'Register Profile'}
             </button>
           </form>
