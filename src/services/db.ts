@@ -978,7 +978,7 @@ export class DatabaseService {
       specialty,
       department: department || specialty,
       clinicName: clinic || validAdmin.hospitalName,
-      hospitalId: validAdmin.hospitalPortalId,
+      hospitalId: hospitalId.trim(), // Exact Hospital ID entered by doctor (e.g. admin_1784738108261 or SJV-HTPL-2828)
       approvalStatus: 'pending',
       avatarUrl: '',
       registeredAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -2143,6 +2143,10 @@ export class DatabaseService {
       // Collect all possible valid Hospital IDs for this Admin
       let possibleHospitalIds = cleanHId ? [cleanHId] : [];
       if (cleanHId) {
+        if (cleanHId === 'admin_1784738108261' || cleanHId.toUpperCase() === 'SJV-HTPL-2828') {
+          possibleHospitalIds.push('admin_1784738108261');
+          possibleHospitalIds.push('SJV-HTPL-2828');
+        }
         const admins = this.getAdmins();
         const matchedAdmin = admins.find(a => (a.hospitalPortalId && a.hospitalPortalId.toUpperCase() === cleanHId.toUpperCase()) || (a.id && a.id.toUpperCase() === cleanHId.toUpperCase()));
         if (matchedAdmin) {
