@@ -404,6 +404,37 @@ export class DatabaseService {
     if (!this.hasSynced) {
       this.hasSynced = true;
       this.syncFromSupabase();
+      this.subscribeSupabaseRealtime();
+    }
+  }
+
+  private static realtimeChannelSubscribed = false;
+  static subscribeSupabaseRealtime() {
+    if (this.realtimeChannelSubscribed) return;
+    this.realtimeChannelSubscribed = true;
+
+    try {
+      supabase
+        .channel('public:realtime-db-sync')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'doctors' }, async () => {
+          await this.syncFromSupabase();
+          realtimeBroker.publish('doctors-update');
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'admins' }, async () => {
+          await this.syncFromSupabase();
+          realtimeBroker.publish('admins-update');
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'patients' }, async () => {
+          await this.syncFromSupabase();
+          realtimeBroker.publish('patients-update');
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'appointments' }, async () => {
+          await this.syncFromSupabase();
+          realtimeBroker.publish('appointments-update');
+        })
+        .subscribe();
+    } catch (e) {
+      console.warn('Supabase Realtime setup failed:', e);
     }
   }
 
@@ -879,9 +910,25 @@ export class DatabaseService {
       throw new Error('Hospital Portal ID is required.');
     }
 
-    // 1. Validate Hospital Portal ID against registered Hospital Admins
+    // 1. Validate Hospital Portal ID against registered Hospital Admins (local & remote Supabase)
     const admins = this.getAdmins();
-    const validAdmin = admins.find(a => a.hospitalPortalId && a.hospitalPortalId.toUpperCase() === hospitalId.trim().toUpperCase());
+    let validAdmin = admins.find(a => (a.hospitalPortalId && a.hospitalPortalId.toUpperCase() === hospitalId.trim().toUpperCase()) || (a.id && a.id.toUpperCase() === hospitalId.trim().toUpperCase()));
+
+    if (!validAdmin) {
+      try {
+        const { data: dbAdmin } = await supabase.from('admins').select('*').or(`hospital_portal_id.eq.${hospitalId.trim()},id.eq.${hospitalId.trim()}`).maybeSingle();
+        if (dbAdmin) {
+          validAdmin = {
+            id: dbAdmin.id,
+            hospitalPortalId: dbAdmin.hospital_portal_id || dbAdmin.id,
+            hospitalName: dbAdmin.hospital_name || 'Hospital',
+            address: dbAdmin.address || '',
+            adminName: dbAdmin.admin_name || 'Admin',
+            email: dbAdmin.email
+          };
+        }
+      } catch (e) {}
+    }
 
     if (!validAdmin) {
       throw new Error('Invalid Hospital Portal ID. Please verify the Portal ID with your Hospital Administrator.');
@@ -2031,6 +2078,11 @@ export class DatabaseService {
 
     localStorage.setItem('sj_active_role', 'admin');
     localStorage.setItem('sj_active_user', JSON.stringify(admin));
+    
+    try {
+      await this.syncFromSupabase();
+    } catch (e) {}
+
     return admin;
   }
 

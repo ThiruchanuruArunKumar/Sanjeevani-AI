@@ -32,6 +32,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     };
 
     loadData();
+    DatabaseService.syncFromSupabase().then(loadData);
 
     const unsubApts = realtimeBroker.subscribe('appointments-update', loadData);
     const unsubDocs = realtimeBroker.subscribe('doctors-update', loadData);

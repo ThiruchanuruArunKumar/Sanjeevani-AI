@@ -32,6 +32,7 @@ export const ManageDoctors: React.FC<ManageDoctorsProps> = ({ onNavigate }) => {
     };
 
     loadDoctors();
+    DatabaseService.syncFromSupabase().then(loadDoctors);
     const unsub = realtimeBroker.subscribe('doctors-update', loadDoctors);
     return () => unsub();
   }, [user?.id, portalId]);
