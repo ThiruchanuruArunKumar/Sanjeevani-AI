@@ -199,21 +199,32 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0B0F19] transition-colors duration-300 flex items-center justify-center p-4 sm:p-6 relative">
-      
-      {/* Top Header Navigation */}
-      <div className="absolute top-6 left-6 cursor-pointer flex items-center gap-2 text-slate-600 hover:text-slate-900 transition-all text-xs font-bold" onClick={() => onNavigate('welcome')}>
-        <ArrowLeft className="h-4 w-4" />
-        <img src="/logo.png" alt="Sanjeevani AI" className="h-8 w-auto object-contain" />
-      </div>
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center items-center">
+      <div className="max-w-md mx-auto w-full min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between p-4 relative overflow-x-hidden shadow-2xl border-x border-slate-200/60 dark:border-slate-800/80">
+        
+        {/* Top Header Navigation */}
+        <div className="flex items-center justify-between py-3 border-b border-slate-200/80 dark:border-slate-800">
+          <button 
+            onClick={() => onNavigate('welcome')}
+            className="flex items-center gap-1.5 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 transition-colors"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            <span>Back to Portal</span>
+          </button>
+          <div className="flex items-center gap-1.5">
+            <img src="/logo.png" alt="Sanjeevani AI" className="h-7 w-auto object-contain" />
+            <span className="text-xs font-black uppercase text-slate-900 dark:text-white">Sanjeevani <span className="text-teal-600">AI</span></span>
+          </div>
+        </div>
 
-      <div className="w-full max-w-lg my-8">
-        <div className="glass-card p-6 sm:p-8 rounded-3xl relative border-teal-500/20 shadow-premium text-left">
-          
-          {/* Banner */}
-          <div className="text-center mb-6">
-            <img src="/logo.png" alt="Sanjeevani AI" className="h-14 w-auto object-contain mx-auto mb-3" />
-            <h2 className="text-2xl font-black text-slate-800 leading-tight">
+        <div className="flex-1 flex flex-col justify-center py-6">
+          <div className="glass-card p-5 rounded-3xl relative border-teal-500/20 shadow-md text-left">
+            
+            {/* Banner */}
+            <div className="text-center mb-5">
+              <img src="/logo.png" alt="Sanjeevani AI" className="h-12 w-auto object-contain mx-auto mb-2" />
+              <h2 className="text-xl font-black text-slate-900 dark:text-white leading-tight">
+
               {registeredPatient 
                 ? 'Registration Successful!' 
                 : mode === 'login' 
@@ -725,5 +736,7 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({ onNavigate }) => {
       </div>
 
     </div>
-  );
+  </div>
+);
 };
+

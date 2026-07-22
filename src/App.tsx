@@ -1,10 +1,15 @@
 // src/App.tsx
 import React, { useState, useEffect } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { SplashScreen } from '@capacitor/splash-screen';
+import { Capacitor } from '@capacitor/core';
 import { DatabaseService, supabase } from './services/db';
 import { ThemeProvider } from './context/ThemeContext';
 import { Layout } from './components/Layout';
 import { Welcome } from './routes/Public/Welcome';
 import { Splash } from './routes/Public/Splash';
+import { Onboarding } from './routes/Public/Onboarding';
 import { RoleSelection } from './routes/Public/RoleSelection';
 import { DoctorAuth } from './routes/Public/DoctorAuth';
 import { PatientAuth } from './routes/Public/PatientAuth';
@@ -36,15 +41,21 @@ import { DoctorRouteWrapper } from './routes/Doctor/DoctorRouteWrapper';
 import { useIsMobile, isCapacitorAndroid } from './services/platform';
 
 export const App: React.FC = () => {
+
   const isMobile = useIsMobile();
   const [showSplash, setShowSplash] = useState<boolean>(() => {
     return window.innerWidth < 768 || isCapacitorAndroid();
   });
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(false);
+
   const getCleanPath = () => {
     let path = window.location.pathname.substring(1);
     if (path.startsWith('Sanjeevani-AI/')) {
       path = path.replace('Sanjeevani-AI/', '');
     } else if (path === 'Sanjeevani-AI') {
+      path = '';
+    }
+    if (path === 'index.html' || path.endsWith('/index.html')) {
       path = '';
     }
     return path;
@@ -81,6 +92,29 @@ export const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      StatusBar.setStyle({ style: Style.Dark }).catch(() => {});
+      StatusBar.setBackgroundColor({ color: '#0f172a' }).catch(() => {});
+      SplashScreen.hide().catch(() => {});
+
+      const backListener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        const rootViews = ['welcome', 'role-selection', 'doctor/login', 'patient/login', 'admin/login', 'doctor/dashboard', 'patient/dashboard', 'admin/dashboard'];
+        if (canGoBack && !rootViews.includes(currentView)) {
+          window.history.back();
+        } else {
+          CapacitorApp.minimizeApp().catch(() => {
+            CapacitorApp.exitApp();
+          });
+        }
+      });
+
+      return () => {
+        backListener.then(l => l.remove()).catch(() => {});
+      };
+    }
+  }, [currentView]);
+
+  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN') {
         const resolved = await DatabaseService.handlePatientOAuthResolution(session);
@@ -94,13 +128,18 @@ export const App: React.FC = () => {
     };
   }, []);
 
+
   const handleNavigate = (view: string) => {
     setCurrentView(view);
     const defaultView = isMobile ? 'role-selection' : 'welcome';
     const basePath = window.location.pathname.includes('Sanjeevani-AI') ? '/Sanjeevani-AI' : '';
     const urlPath = view === defaultView ? `${basePath}/` : `${basePath}/${view}`;
-    if (window.location.pathname !== urlPath) {
-      window.history.pushState({}, '', urlPath);
+    if (window.location.pathname !== urlPath && !window.location.protocol.startsWith('file')) {
+      try {
+        window.history.pushState({}, '', urlPath);
+      } catch (e) {
+        // Fallback for strict webviews
+      }
     }
     window.scrollTo(0, 0);
   };
@@ -237,7 +276,27 @@ export const App: React.FC = () => {
     currentView.startsWith('emergency/');
 
   if (isMobile && showSplash) {
-    return <Splash onComplete={() => setShowSplash(false)} />;
+    return (
+      <Splash 
+        onComplete={() => {
+          setShowSplash(false);
+          setShowOnboarding(true);
+        }} 
+      />
+    );
+  }
+
+  if (isMobile && showOnboarding) {
+    return (
+      <Onboarding 
+        onComplete={() => {
+          setShowOnboarding(false);
+          if (!currentView || currentView === 'welcome') {
+            setCurrentView('role-selection');
+          }
+        }} 
+      />
+    );
   }
 
   return (

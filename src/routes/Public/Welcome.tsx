@@ -1,19 +1,17 @@
-// Under c:\Arun\SIMATS\PDD Sanjeevani Ai\src\routes\Public\Welcome.tsx
+// src/routes/Public/Welcome.tsx — Production-Grade Role Portal Selection Screen
 import React, { useState } from 'react';
-import { AISafetyEngine, Drug } from '../../services/ai';
 import { DatabaseService } from '../../services/db';
 import { 
   Stethoscope, 
   Activity, 
   ShieldAlert, 
   User, 
-  Pill, 
-  ShieldCheck, 
-  Flame, 
-  Compass, 
-  Heart,
+  ArrowRight,
   QrCode,
-  ArrowRight
+  Sparkles,
+  Building,
+  HeartPulse,
+  Lock
 } from 'lucide-react';
 
 interface WelcomeProps {
@@ -21,276 +19,178 @@ interface WelcomeProps {
 }
 
 export const Welcome: React.FC<WelcomeProps> = ({ onNavigate }) => {
-  const [selectedDrugA, setSelectedDrugA] = useState('warfarin');
-  const [selectedDrugB, setSelectedDrugB] = useState('aspirin');
-  const [hasAllergy, setHasAllergy] = useState(true);
   const [quickLookupId, setQuickLookupId] = useState('');
   const [lookupError, setLookupError] = useState('');
 
-  // Run on-page AI safety simulation
-  const proposedDrugs: Drug[] = [
-    { name: selectedDrugA, dosage: '10mg', frequency: 'Once daily' },
-    { name: selectedDrugB, dosage: '325mg', frequency: 'Once daily' }
-  ];
-
-  const allergies = hasAllergy ? [{ allergen: 'Penicillin', severity: 'Severe' as const, reaction: 'Anaphylaxis' }] : [];
-  if (selectedDrugA === 'amoxicillin' && hasAllergy) {
-    allergies.push({ allergen: 'Penicillin', severity: 'Severe' as const, reaction: 'Anaphylaxis' });
-  }
-
-  const { alerts, riskLevel, riskScore } = AISafetyEngine.runCompleteSafetyAudit(
-    proposedDrugs,
-    allergies,
-    ['Hypertension', 'Chronic Kidney Disease'],
-    []
-  );
-
   const handleEmergencyLookup = (e: React.FormEvent) => {
     e.preventDefault();
-    const lookupId = quickLookupId.trim();
+    const lookupId = quickLookupId.trim().toUpperCase();
     if (DatabaseService.getPatientById(lookupId)) {
       onNavigate(`emergency/details?id=${lookupId}`);
     } else {
-      setLookupError('Invalid Patient ID. Please enter a valid registered ID.');
+      setLookupError('No matching record found. Please verify the Patient ID.');
       setTimeout(() => setLookupError(''), 4000);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#0B0F19] transition-colors duration-300 flex flex-col justify-between">
-      
-      {/* Top Welcome Header */}
-      <nav className="glass-nav sticky top-0 z-40 w-full px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img src="/logo.png" alt="Sanjeevani AI" className="h-11 w-auto object-contain" />
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center items-center">
+      <div className="max-w-md mx-auto w-full min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between p-4 sm:p-5 relative overflow-x-hidden shadow-2xl border-x border-slate-200/60 dark:border-slate-800/80">
+        
+        {/* Background Glow Badges */}
+        <div className="absolute top-[-10%] left-[-10%] w-80 h-80 bg-teal-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+
+      {/* Top App Bar */}
+      <header className="flex justify-between items-center z-10 py-3 border-b border-slate-200/80 dark:border-slate-800">
+        <div className="flex items-center gap-3">
+          <div className="h-10 w-10 rounded-2xl bg-teal-50 dark:bg-teal-950/40 backdrop-blur-md flex items-center justify-center p-1.5 border border-teal-200/60 dark:border-teal-800">
+            <img src="/logo.png" alt="Sanjeevani AI" className="h-full w-full object-contain" />
+          </div>
+          <div>
+            <span className="text-base font-black tracking-tight uppercase text-slate-900 dark:text-white block leading-none">
+              Sanjeevani <span className="text-teal-600 dark:text-teal-400">AI</span>
+            </span>
+            <span className="text-[10px] text-teal-600 dark:text-teal-400 font-bold uppercase tracking-wider block mt-0.5">
+              Clinical Intelligence
+            </span>
+          </div>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <button 
             onClick={() => onNavigate('admin/login')} 
-            className="px-4 py-2 text-sm font-bold text-slate-500 hover:text-slate-800 transition-all"
+            className="px-3.5 py-1.5 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-teal-700 bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 active:scale-95 transition-all shadow-xs"
           >
-            Hospital Admin
-          </button>
-          <button 
-            onClick={() => onNavigate('doctor/login')} 
-            className="px-4 py-2 text-sm font-bold text-primary hover:bg-teal-50 rounded-xl transition-all"
-          >
-            Doctor Login
-          </button>
-          <button 
-            onClick={() => onNavigate('patient/login')} 
-            className="btn-medical text-xs sm:text-sm font-bold"
-          >
-            Patient Portal
+            Admin
           </button>
         </div>
-      </nav>
+      </header>
 
-      {/* Main Landing Content */}
-      <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+      {/* Main Content Body */}
+      <main className="flex-1 max-w-lg mx-auto w-full flex flex-col justify-center py-8 z-10 space-y-6">
         
-        {/* Left Column: Premium Value Pitch */}
-        <div className="lg:col-span-7 space-y-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-50 text-primary border border-teal-500/10 text-xs font-bold">
-            <Compass className="h-4 w-4 text-primary animate-spin" style={{ animationDuration: '6s' }} />
-            Next-Gen Smart Healthcare Analytics
+        {/* Header Hero */}
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-50 dark:bg-teal-950/50 border border-teal-200 dark:border-teal-800 text-teal-700 dark:text-teal-400 text-[11px] font-extrabold uppercase tracking-widest">
+            <Sparkles className="h-3.5 w-3.5 text-teal-500" />
+            Next-Gen Healthcare Portal
           </div>
-
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-slate-900 leading-tight">
-            AI-Powered <br />
-            <span className="bg-gradient-to-r from-primary to-emerald-500 bg-clip-text text-transparent">
-              Drug Safety Monitoring
-            </span> <br />
-            & Emergency Sync.
+          
+          <h1 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight text-slate-900 dark:text-white">
+            Select Your <br />
+            <span className="bg-gradient-to-r from-teal-600 to-emerald-600 dark:from-teal-400 dark:to-emerald-400 bg-clip-text text-transparent">
+              Portal Access
+            </span>
           </h1>
 
-          <p className="text-slate-600 text-lg leading-relaxed max-w-xl">
-            Sanjeevani AI is a premium clinical decision assistance platform connecting healthcare providers and patients. It detects harmful drug-drug interactions, cross-matches allergen profiles, and synchronizes medical alerts instantly in real-time.
+          <p className="text-slate-600 dark:text-slate-400 text-xs sm:text-sm leading-relaxed max-w-sm mx-auto font-medium">
+            Realtime AI drug safety audit, clinical decision assistance, and first-responder emergency QR pass system.
           </p>
-
-          {/* Quick Gates */}
-          <div className="flex flex-wrap gap-4 pt-2">
-            <button 
-              onClick={() => onNavigate('doctor/login')} 
-              className="px-6 py-4 bg-accent hover:bg-accent-light text-white rounded-2xl flex items-center justify-center font-bold gap-3 shadow-premium active:scale-98 transition-all"
-            >
-              <User className="h-5 w-5" />
-              I am a Healthcare Clinician
-              <ArrowRight className="h-4 w-4" />
-            </button>
-
-            <button 
-              onClick={() => onNavigate('patient/login')} 
-              className="px-6 py-4 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl flex items-center justify-center font-bold gap-3 shadow-sm active:scale-98 transition-all"
-            >
-              <Activity className="h-5 w-5 text-primary" />
-              Patient Login (OTP)
-            </button>
-          </div>
-
-          {/* First Responder Bypass */}
-          <div className="pt-6 border-t border-slate-200/60 max-w-md">
-            <form onSubmit={handleEmergencyLookup} className="space-y-2">
-              <label className="text-xs font-bold text-slate-500 flex items-center gap-1.5">
-                <ShieldAlert className="h-4 w-4 text-rose-500" />
-                EMERGENCY MEDICAL SCAN BYPASS (NO AUTH NEEDED)
-              </label>
-              <div className="flex gap-2">
-                <input 
-                  type="text" 
-                  placeholder='Enter Patient ID (e.g. SJV-PAT-XXXXXX)' 
-                  value={quickLookupId}
-                  onChange={(e) => setQuickLookupId(e.target.value)}
-                  className="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-primary text-sm font-semibold"
-                />
-                <button 
-                  type="submit" 
-                  className="px-4 py-2.5 bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl text-xs flex items-center gap-1"
-                >
-                  <QrCode className="h-4 w-4" />
-                  View ID
-                </button>
-              </div>
-              {lookupError && (
-                <span className="text-xs font-semibold text-rose-600 block mt-1 animate-pulse">{lookupError}</span>
-              )}
-            </form>
-          </div>
         </div>
 
-        {/* Right Column: AI interactive simulator widget */}
-        <div className="lg:col-span-5">
-          <div className="glass-card p-6 sm:p-8 rounded-3xl relative border-teal-500/20 shadow-premium medical-glow-active">
-            <div className="absolute top-4 right-4 flex items-center gap-1 bg-teal-50 text-[10px] font-bold text-primary px-2.5 py-1 rounded-full uppercase tracking-wider border border-teal-500/10">
-              <Activity className="h-3.5 w-3.5 animate-pulse text-emerald-500" />
-              AI Safety Simulator
-            </div>
-
-            <h3 className="text-lg font-black text-slate-800 flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-primary" />
-              Clinical Check Widget
-            </h3>
-            <p className="text-xs text-slate-400 mt-1">
-              Select two clinical compounds to analyze interaction risks instantly.
-            </p>
-
-            {/* Input Selectors */}
-            <div className="space-y-4 mt-6">
+        {/* 3 MNC Role Cards */}
+        <div className="space-y-3.5 pt-2">
+          
+          {/* Card 1: Patient Portal */}
+          <button 
+            onClick={() => onNavigate('patient/login')} 
+            className="w-full p-4 rounded-3xl bg-white dark:bg-slate-900 border border-teal-200/80 dark:border-teal-900/60 hover:border-teal-400 shadow-md hover:shadow-lg flex items-center justify-between text-left group active:scale-98 transition-all"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="h-12 w-12 rounded-2xl bg-teal-50 dark:bg-teal-950/60 text-teal-600 dark:text-teal-400 flex items-center justify-center border border-teal-200 dark:border-teal-800 shrink-0">
+                <Activity className="h-6 w-6" />
+              </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider mb-1.5">Proposed Medication</label>
-                <select 
-                  value={selectedDrugA} 
-                  onChange={(e) => setSelectedDrugA(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white/50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-primary"
-                >
-                  <option value="warfarin">Warfarin (Blood Thinner)</option>
-                  <option value="lisinopril">Lisinopril (BP medication)</option>
-                  <option value="metformin">Metformin (Diabetes drug)</option>
-                  <option value="amoxicillin">Amoxicillin (Antibiotic)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider mb-1.5">Medication 2 (In System)</label>
-                <select 
-                  value={selectedDrugB} 
-                  onChange={(e) => setSelectedDrugB(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white/50 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-primary"
-                >
-                  <option value="aspirin">Aspirin (Antiplatelet / Pain)</option>
-                  <option value="spironolactone">Spironolactone (BP diuretic)</option>
-                  <option value="ibuprofen">Ibuprofen (NSAID pain relief)</option>
-                  <option value="metformin">Metformin (Diabetes drug)</option>
-                </select>
-              </div>
-
-              {/* Patient Allergies Toggle */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50/50 border border-slate-100">
-                <div className="text-left">
-                  <span className="text-xs font-bold text-slate-700 block">Cross Match Allergy Profiles</span>
-                  <span className="text-[10px] text-slate-400 block">Simulates severe Penicillin allergy.</span>
-                </div>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={hasAllergy} 
-                    onChange={(e) => setHasAllergy(e.target.checked)} 
-                    className="sr-only peer"
-                  />
-                  <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
-                </label>
-              </div>
-            </div>
-
-            {/* Analysis Results Display */}
-            <div className="mt-6 pt-6 border-t border-slate-100 space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">AI Safety Index Score</span>
-                <span className={`text-xs font-extrabold uppercase px-2.5 py-1 rounded-full ${
-                  riskLevel === 'critical' ? 'bg-rose-50 text-rose-700 border border-rose-200' :
-                  riskLevel === 'elevated' ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                  'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                }`}>
-                  {riskLevel} ({riskScore}/100)
+                <span className="text-sm font-black text-slate-900 dark:text-white block">Patient Portal</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold block mt-0.5">
+                  View Vitals, OTP Sign In & Hospital Account Activation
                 </span>
               </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-teal-600 dark:text-teal-400 group-hover:translate-x-1 transition-transform shrink-0" />
+          </button>
 
-              {/* Progress Bar */}
-              <div className="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
-                <div 
-                  className={`h-full transition-all duration-550 ${
-                    riskLevel === 'critical' ? 'bg-rose-500' :
-                    riskLevel === 'elevated' ? 'bg-amber-500' :
-                    'bg-emerald-500'
-                  }`}
-                  style={{ width: `${riskScore}%` }}
-                ></div>
+          {/* Card 2: Doctor Portal */}
+          <button 
+            onClick={() => onNavigate('doctor/login')} 
+            className="w-full p-4 rounded-3xl bg-white dark:bg-slate-900 border border-indigo-200/80 dark:border-indigo-900/60 hover:border-indigo-400 shadow-md hover:shadow-lg flex items-center justify-between text-left group active:scale-98 transition-all"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="h-12 w-12 rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center border border-indigo-200 dark:border-indigo-800 shrink-0">
+                <Stethoscope className="h-6 w-6" />
               </div>
-
-              {/* Alerts Log */}
-              <div className="space-y-2.5 max-h-40 overflow-y-auto pr-1">
-                {alerts.length === 0 ? (
-                  <div className="flex items-center gap-2 p-3 bg-emerald-50/40 rounded-xl border border-emerald-500/10 text-emerald-800 text-xs font-medium">
-                    <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
-                    No interactions or allergy conflicts. Safe for prescribing.
-                  </div>
-                ) : (
-                  alerts.map((alert, i) => (
-                    <div 
-                      key={i} 
-                      className={`p-3 rounded-xl border text-xs flex flex-col gap-1 ${
-                        alert.severity === 'critical' 
-                          ? 'bg-rose-50/50 border-rose-500/10 text-rose-800' 
-                          : 'bg-amber-50/50 border-amber-500/10 text-amber-800'
-                      }`}
-                    >
-                      <span className="font-bold flex items-center gap-1">
-                        <Flame className="h-3.5 w-3.5" />
-                        {alert.title}
-                      </span>
-                      <span className="text-[10px] leading-relaxed text-slate-500">{alert.message}</span>
-                      {alert.suggestedAlternative && (
-                        <span className="text-[10px] leading-relaxed text-teal-800 bg-teal-50 rounded-lg p-1.5 mt-1 border border-teal-500/5 font-semibold">
-                          Alternative: {alert.suggestedAlternative}
-                        </span>
-                      )}
-                    </div>
-                  ))
-                )}
+              <div>
+                <span className="text-sm font-black text-slate-900 dark:text-white block">Healthcare Clinician</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold block mt-0.5">
+                  Doctor Login, Patient Queue & AI Prescriber
+                </span>
               </div>
             </div>
+            <ArrowRight className="h-5 w-5 text-indigo-600 dark:text-indigo-400 group-hover:translate-x-1 transition-transform shrink-0" />
+          </button>
 
-          </div>
+          {/* Card 3: Hospital Admin */}
+          <button 
+            onClick={() => onNavigate('admin/login')} 
+            className="w-full p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-slate-400 shadow-md hover:shadow-lg flex items-center justify-between text-left group active:scale-98 transition-all"
+          >
+            <div className="flex items-center gap-3.5">
+              <div className="h-12 w-12 rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 flex items-center justify-center border border-slate-200 dark:border-slate-700 shrink-0">
+                <Building className="h-6 w-6" />
+              </div>
+              <div>
+                <span className="text-sm font-black text-slate-900 dark:text-white block">Hospital Administrator</span>
+                <span className="text-[11px] text-slate-500 dark:text-slate-400 font-semibold block mt-0.5">
+                  Walk-In Registrations & Doctor Approval Queue
+                </span>
+              </div>
+            </div>
+            <ArrowRight className="h-5 w-5 text-slate-500 group-hover:translate-x-1 transition-transform shrink-0" />
+          </button>
+
         </div>
 
-      </div>
+        {/* Emergency Search Bar */}
+        <div className="p-4 rounded-3xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800/40 text-left space-y-2.5 shadow-xs">
+          <label className="text-[11px] font-black text-rose-700 dark:text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+            <ShieldAlert className="h-4 w-4 text-rose-600 animate-pulse" />
+            First Responder Emergency Pass Lookup
+          </label>
+          <form onSubmit={handleEmergencyLookup} className="flex gap-2">
+            <input 
+              type="text" 
+              placeholder='Enter Patient ID (e.g. SJV-PAT-1000013)' 
+              value={quickLookupId}
+              onChange={(e) => setQuickLookupId(e.target.value)}
+              className="flex-1 px-3.5 py-2.5 rounded-2xl bg-white dark:bg-slate-900 border border-rose-300 dark:border-rose-800 text-xs font-bold text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:border-rose-500"
+            />
+            <button 
+              type="submit" 
+              className="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white font-black rounded-2xl text-xs flex items-center gap-1 active:scale-95 transition-all shrink-0 shadow-xs"
+            >
+              <QrCode className="h-4 w-4" />
+              Scan
+            </button>
+          </form>
+          {lookupError && (
+            <span className="text-[11px] font-bold text-rose-600 dark:text-rose-400 block animate-pulse">{lookupError}</span>
+          )}
+        </div>
+
+      </main>
 
       {/* Footer */}
-      <footer className="py-6 border-t border-slate-100 bg-white/50 text-center">
-        <img src="/logo.png" alt="Sanjeevani AI" className="h-10 w-auto object-contain mx-auto opacity-70" />
+      <footer className="py-3 text-center border-t border-slate-200/80 dark:border-slate-800 z-10">
+        <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+          Sanjeevani AI • Production Clinical Platform
+        </span>
       </footer>
 
+      </div>
     </div>
   );
 };
+
+

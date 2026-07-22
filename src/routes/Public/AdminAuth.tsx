@@ -89,22 +89,35 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 relative">
-      <div className="absolute top-6 left-6 cursor-pointer" onClick={() => onNavigate('welcome')}>
-        <img src="/logo.png" alt="Sanjeevani AI" className="h-10 w-auto object-contain" />
-      </div>
-
-      <div className="w-full max-w-md">
-        <div className="glass-card p-8 rounded-3xl border-teal-500/20 shadow-premium">
-          <div className="text-center mb-8">
-            <Building className="h-12 w-12 text-teal-600 mx-auto mb-4" />
-            <h2 className="text-2xl font-black text-slate-800">
-              {isLogin ? 'Hospital Admin Login' : 'Register Hospital'}
-            </h2>
-            <p className="text-xs text-slate-400 mt-1.5">
-              {isLogin ? 'Access your central hospital management console.' : 'Set up your hospital to manage doctors, patients, and appointments.'}
-            </p>
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center items-center">
+      <div className="max-w-md mx-auto w-full min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between p-4 relative overflow-x-hidden shadow-2xl border-x border-slate-200/60 dark:border-slate-800/80">
+        
+        {/* Top Header */}
+        <div className="flex items-center justify-between py-3 border-b border-slate-200/80 dark:border-slate-800">
+          <button 
+            onClick={() => onNavigate('welcome')}
+            className="flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-slate-300 hover:text-teal-600 transition-colors"
+          >
+            ← Back to Portal
+          </button>
+          <div className="flex items-center gap-1.5">
+            <img src="/logo.png" alt="Sanjeevani AI" className="h-7 w-auto object-contain" />
+            <span className="text-xs font-black uppercase text-slate-900 dark:text-white">Sanjeevani <span className="text-teal-600">AI</span></span>
           </div>
+        </div>
+
+        <div className="flex-1 flex flex-col justify-center py-6">
+          <div className="glass-card p-6 rounded-3xl border-teal-500/20 shadow-md">
+            <div className="text-center mb-6">
+              <Building className="h-12 w-12 text-teal-600 mx-auto mb-3" />
+              <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                {isLogin ? 'Hospital Admin Login' : 'Register Hospital'}
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                {isLogin ? 'Access your central hospital management console.' : 'Set up your hospital to manage doctors, patients, and appointments.'}
+              </p>
+            </div>
+
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
@@ -207,17 +220,21 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
             </button>
           </form>
 
-          <div className="mt-6 text-center border-t border-slate-100 pt-5">
+          <div className="mt-6 text-center border-t border-slate-100 dark:border-slate-800 pt-5">
             <button 
               onClick={() => setIsLogin(!isLogin)}
-              className="text-xs font-semibold text-teal-600 hover:text-teal-700 hover:underline"
+              className="text-xs font-semibold text-teal-600 hover:text-teal-700 dark:hover:text-teal-400 hover:underline"
             >
               {isLogin ? "Need to register your hospital?" : "Already registered? Login"}
             </button>
           </div>
         </div>
+
       </div>
     </div>
-  );
+  </div>
+);
 };
+
+
 

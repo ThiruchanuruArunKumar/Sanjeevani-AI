@@ -110,6 +110,32 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
 
   const navItems = role === 'admin' ? adminNavItems : role === 'doctor' ? doctorNavItems : patientNavItems;
 
+  const doctorBottomItems = [
+    { id: 'doctor/dashboard', label: 'Home', icon: <Activity className="h-5 w-5" /> },
+    { id: 'doctor/appointments', label: 'Schedule', icon: <Calendar className="h-5 w-5" /> },
+    { id: 'doctor/patients', label: 'Patients', icon: <Users className="h-5 w-5" /> },
+    { id: 'doctor/alerts', label: 'Alerts', icon: <ShieldAlert className="h-5 w-5" /> },
+    { id: 'doctor/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
+  ];
+
+  const patientBottomItems = [
+    { id: 'patient/dashboard', label: 'Home', icon: <Activity className="h-5 w-5" /> },
+    { id: 'patient/appointments', label: 'Bookings', icon: <Calendar className="h-5 w-5" /> },
+    { id: 'patient/history', label: 'History', icon: <History className="h-5 w-5" /> },
+    { id: 'patient/qr', label: 'Pass ID', icon: <QrCode className="h-5 w-5" /> },
+    { id: 'profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
+  ];
+
+  const adminBottomItems = [
+    { id: 'admin/dashboard', label: 'Home', icon: <Building className="h-5 w-5" /> },
+    { id: 'admin/doctors', label: 'Doctors', icon: <Stethoscope className="h-5 w-5" /> },
+    { id: 'admin/appointments', label: 'Requests', icon: <Calendar className="h-5 w-5" /> },
+    { id: 'admin/all-patients', label: 'Patients', icon: <Users className="h-5 w-5" /> },
+    { id: 'admin/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
+  ];
+
+  const bottomNavItems = role === 'admin' ? adminBottomItems : role === 'doctor' ? doctorBottomItems : patientBottomItems;
+
   const defaultRoute = role === 'admin' ? 'admin/dashboard' : role === 'doctor' ? 'doctor/dashboard' : 'patient/dashboard';
 
   // Determine title for Android Header
@@ -141,117 +167,182 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 transition-colors duration-300">
       {isMobile ? (
-        <>
-          {/* 📱 Android Style Top App Bar */}
-          <header className="glass-nav sticky top-0 z-40 w-full px-4 py-3.5 flex items-center justify-between border-b border-slate-200/50 dark:border-slate-800/40">
-            <div className="flex items-center gap-3">
+        <div className="max-w-md mx-auto w-full min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col relative shadow-2xl overflow-x-hidden border-x border-slate-200/60 dark:border-slate-800/80">
+          {/* 📱 MNC Native App Fixed Top Header Bar */}
+          <header className="glass-nav sticky top-0 z-40 w-full h-14 px-3 safe-top-padding flex items-center justify-between border-b border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} 
+                className="h-9 w-9 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all active:scale-95 border border-slate-200/60 dark:border-slate-800 shrink-0"
+                title="Menu"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+
               {/* Back button where applicable */}
-              {hasBackNavigation ? (
+              {hasBackNavigation && (
                 <button 
                   onClick={handleBackPress}
-                  className="p-2 rounded-xl text-slate-650 dark:text-slate-350 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all cursor-pointer"
+                  className="h-9 w-9 flex items-center justify-center rounded-xl text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-90 transition-all cursor-pointer border border-slate-200/60 dark:border-slate-800 shrink-0"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
                   </svg>
                 </button>
-              ) : (
-                <div className="flex items-center gap-2 cursor-pointer" onClick={() => onNavigate(defaultRoute)}>
-                  <img
-                    src="/logo.png"
-                    alt="Sanjeevani AI"
-                    className="h-8.5 w-auto object-contain"
-                  />
-                </div>
               )}
-              
-              <h2 className="text-lg font-black text-slate-800 dark:text-white tracking-tight">
-                {getHeaderTitle()}
-              </h2>
+
+              <div className="flex items-center gap-2 cursor-pointer truncate" onClick={() => onNavigate(defaultRoute)}>
+                <div className="h-8.5 w-8.5 rounded-xl bg-teal-500/10 dark:bg-teal-400/20 border border-teal-500/20 flex items-center justify-center text-teal-700 dark:text-teal-400 font-black text-xs shrink-0">
+                  {user?.name ? user.name.charAt(0).toUpperCase() : 'S'}
+                </div>
+                <div className="text-left truncate">
+                  <span className="text-xs font-black text-slate-900 dark:text-white block tracking-tight leading-none truncate">
+                    {user?.name || getHeaderTitle()}
+                  </span>
+                  <span className="text-[9px] text-teal-600 dark:text-teal-400 font-bold uppercase tracking-wider block mt-0.5 truncate">
+                    {role === 'patient' ? `ID: ${user?.id || ''}` : role === 'doctor' ? 'Doctor Portal' : 'Admin Portal'}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="flex items-center gap-2.5">
-              {/* Premium Dark Mode Toggle */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Emergency Quick SOS Button */}
+              <button 
+                onClick={() => onNavigate('emergency/scan')} 
+                className="h-8 px-2.5 bg-rose-500 text-white rounded-xl text-[11px] font-black shadow-xs active:scale-95 transition-all flex items-center gap-1 shrink-0"
+              >
+                <ShieldAlert className="h-3.5 w-3.5 animate-pulse" />
+                <span>SOS</span>
+              </button>
+
+              {/* Theme Toggle */}
               <button
                 onClick={toggleTheme}
-                className="p-2 text-slate-500 dark:text-slate-400 hover:bg-teal-50 dark:hover:bg-slate-800/80 rounded-xl transition-all duration-300 active:scale-95 flex items-center justify-center"
-                title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-                id="theme-toggle-btn"
+                className="h-8 w-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all active:scale-95 border border-slate-200/50 dark:border-slate-800 shrink-0"
+                title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}
               >
                 {theme === 'light' ? (
-                  <Moon className="h-5 w-5 text-slate-700 transition-all duration-300" />
+                  <Moon className="h-4 w-4 text-slate-700" />
                 ) : (
-                  <Sun className="h-5 w-5 text-teal-400 transition-all duration-300" />
+                  <Sun className="h-4 w-4 text-teal-400" />
                 )}
               </button>
 
-              {/* Realtime Notification Bell */}
+              {/* Notification Bell */}
               {user && role === 'patient' && (
                 <button 
                   onClick={() => setIsNotificationOpen(true)}
-                  className="relative p-2 text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-teal-50 dark:hover:bg-slate-800 rounded-xl transition-all"
+                  className="relative h-8 w-8 flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-teal-50 dark:hover:bg-slate-800 rounded-xl transition-all active:scale-95 border border-slate-200/50 dark:border-slate-800 shrink-0"
                 >
-                  <Bell className="h-5 w-5" />
+                  <Bell className="h-4 w-4" />
                   {unreadCount > 0 && (
-                    <span className="absolute top-0.5 right-0.5 h-4.5 w-4.5 bg-rose-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900 animate-bounce shadow-sm">
+                    <span className="absolute -top-1 -right-1 h-3.5 w-3.5 bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center border border-white dark:border-slate-900 animate-bounce">
                       {unreadCount}
                     </span>
                   )}
                 </button>
               )}
 
-              {/* Logout Button */}
+              {/* Logout */}
               <button 
                 onClick={handleLogout}
-                className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all"
+                className="h-8 w-8 flex items-center justify-center text-slate-400 hover:text-rose-600 dark:hover:bg-rose-950/30 rounded-xl transition-all active:scale-95 border border-slate-200/50 dark:border-slate-800 shrink-0"
                 title="Log Out"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className="h-4 w-4" />
               </button>
             </div>
           </header>
 
+          {/* Mobile Navigation Drawer */}
+
+          {isMobileMenuOpen && (
+            <div className="fixed inset-0 z-50 flex">
+              <div className="absolute inset-0 bg-slate-950/60 backdrop-blur-xs" onClick={() => setIsMobileMenuOpen(false)}></div>
+              <div className="relative w-72 max-w-xs bg-white dark:bg-slate-900 h-full p-6 flex flex-col gap-6 shadow-2xl animate-slide-right text-left border-r border-slate-200 dark:border-slate-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <img src="/logo.png" alt="Sanjeevani AI" className="h-7 w-auto object-contain" />
+                    <span className="text-xs font-black text-slate-800 dark:text-white uppercase tracking-widest">Navigation</span>
+                  </div>
+                  <button onClick={() => setIsMobileMenuOpen(false)} className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400">
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <nav className="space-y-1.5 flex-1 overflow-y-auto">
+                  {navItems.map((item) => {
+                    const isActive = currentView === item.id || currentView.startsWith(item.id.split('/:')[0]);
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          onNavigate(item.id);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold transition-all ${
+                          isActive 
+                            ? 'bg-primary text-white shadow-premium' 
+                            : 'text-slate-600 dark:text-slate-300 hover:text-primary hover:bg-teal-50 dark:hover:bg-slate-800'
+                        }`}
+                      >
+                        {item.icon}
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                  <button
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all"
+                  >
+                    <LogOut className="h-4.5 w-4.5" />
+                    Log Out
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Main Workspace Body */}
-          <div className="flex-1 flex relative pb-16">
-            {/* Dynamic Page Container */}
-            <main className="flex-1 p-4 max-w-7xl mx-auto w-full overflow-hidden">
+          <div className="flex-1 flex relative">
+            <main className="flex-1 p-3.5 sm:p-5 max-w-7xl mx-auto w-full overflow-x-hidden pb-24">
               {children}
             </main>
           </div>
 
-          {/* 📱 Modern Android-style Bottom Navigation Bar */}
-          <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200/50 dark:border-slate-800/80 shadow-premium flex justify-around items-center py-2 px-1">
-            {navItems.slice(0, 5).map((item) => {
-              const isActive = currentView === item.id || currentView.startsWith(item.id.split('/:')[0]);
+          {/* 📱 MNC Native App Fixed Bottom Navigation Tab Bar */}
+          <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800/80 px-2 py-1.5 safe-bottom-padding flex items-center justify-around shadow-2xl">
+            {bottomNavItems.map((item) => {
+              const isActive = currentView === item.id || (item.id === 'profile' && currentView.includes('profile')) || currentView.startsWith(item.id.split('/:')[0]);
               return (
                 <button
                   key={item.id}
                   onClick={() => onNavigate(item.id)}
-                  className="flex flex-col items-center justify-center py-1 px-3.5 rounded-xl transition-all cursor-pointer relative"
-                >
-                  {/* Active Indicator Backdrop */}
-                  <div className={`h-8 w-14 rounded-full flex items-center justify-center transition-all ${
+                  className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all duration-200 active:scale-95 ${
                     isActive 
-                      ? 'bg-teal-50 dark:bg-teal-950/40 text-primary scale-105' 
-                      : 'text-slate-400 dark:text-slate-500'
-                  }`}>
+                      ? 'text-teal-600 dark:text-teal-400 font-extrabold bg-teal-50/80 dark:bg-teal-950/40' 
+                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+                  }`}
+                >
+                  <div className={`p-1 rounded-xl transition-all ${isActive ? 'scale-110' : ''}`}>
                     {item.icon}
                   </div>
-                  <span className={`text-[10px] font-extrabold uppercase mt-1 tracking-wide transition-all ${
-                    isActive 
-                      ? 'text-primary' 
-                      : 'text-slate-400 dark:text-slate-500'
-                  }`}>
-                    {item.label.split(' ').pop()}
+                  <span className="text-[10px] font-bold tracking-tight mt-0.5 leading-none">
+                    {item.label}
                   </span>
                 </button>
               );
             })}
-          </div>
-        </>
+          </nav>
+        </div>
       ) : (
+
         <>
           {/* Top Header */}
           <header className="glass-nav sticky top-0 z-40 w-full px-6 py-4 flex items-center justify-between">

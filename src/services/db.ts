@@ -230,26 +230,63 @@ export interface MedicationLog {
 // Core Database State / Mock LocalStorage Database Seeds
 // ----------------------------------------------------
 
-const SEED_DOCTOR: DoctorProfile | null = null;
+const DEFAULT_SEED_ADMIN: HospitalAdminProfile = {
+  id: 'admin_seed_1',
+  hospitalPortalId: 'SJV-HTPL-1001',
+  hospitalName: 'Sanjeevani AI Central Hospital',
+  address: 'Metro Health Campus, Block A',
+  adminName: 'Dr. Vikramaditya (Admin)',
+  email: 'admin@sanjeevani.ai',
+  phone: '+91 98765 43210',
+  hospitalEmail: 'contact@sanjeevanihospital.org',
+  hospitalPhone: '+91 80 2345 6789',
+  hospitalStatus: 'Active',
+  emailVerified: true,
+  phoneVerified: true,
+  securityScore: 98
+};
 
-const SEED_PATIENTS: PatientProfile[] = [];
+const DEFAULT_SEED_DOCTOR: DoctorProfile = {
+  id: 'doc_seed_1',
+  name: 'Dr. Arun Kumar',
+  email: 'doctor@sanjeevani.ai',
+  medicalRegNumber: 'MCI-2024-88492',
+  specialty: 'Cardiology & General Medicine',
+  clinicName: 'Sanjeevani AI Central Hospital',
+  hospitalId: 'SJV-HTPL-1001',
+  approvalStatus: 'accepted'
+};
 
+const DEFAULT_SEED_PATIENT: PatientProfile = {
+  id: 'SJV-PAT-100001',
+  hospitalPortalId: 'SJV-HTPL-1001',
+  name: 'Rajesh Sharma',
+  age: 42,
+  gender: 'Male',
+  phone: '+91 98765 12345',
+  email: 'patient@sanjeevani.ai',
+  address: '12-A Health Avenue, Bangalore',
+  bloodGroup: 'O+',
+  allergies: [{ allergen: 'Penicillin', severity: 'Severe', reaction: 'Anaphylaxis' }],
+  chronicConditions: ['Hypertension', 'Type 2 Diabetes'],
+  activeMedications: [{ name: 'Amlodipine', dosage: '5mg', frequency: 'Once daily' }],
+  emergencyContact: { name: 'Sunita Sharma', phone: '+91 98765 54321', email: 'sunita@gmail.com' },
+  vitals: { systolicBP: 128, diastolicBP: 84, heartRate: 74, temperature: 98.6, oxygenSat: 98 },
+  accountStatus: 'activated',
+  registrationType: 'ONLINE',
+  passwordHash: 'patient123'
+};
+
+const SEED_DOCTOR: DoctorProfile | null = DEFAULT_SEED_DOCTOR;
+const SEED_PATIENTS: PatientProfile[] = [DEFAULT_SEED_PATIENT];
 const SEED_VISITS: ClinicalVisit[] = [];
-
 const SEED_REPORTS: UploadedReport[] = [];
-
 const SEED_ALERTS: HealthAlert[] = [];
-
 const SEED_FEEDBACKS: MedicationFeedback[] = [];
-
 const SEED_PREDICTIONS: HealthRiskPrediction[] = [];
-
 const SEED_MEDICATION_LOGS: MedicationLog[] = [];
-
-const SEED_ADMINS: HospitalAdminProfile[] = [];
-
+const SEED_ADMINS: HospitalAdminProfile[] = [DEFAULT_SEED_ADMIN];
 const SEED_APPOINTMENTS: Appointment[] = [];
-
 const SEED_CONSULTATION_FEEDBACKS: ConsultationFeedback[] = [];
 
 // ----------------------------------------------------
@@ -261,8 +298,23 @@ export function generateHospitalPortalId(): string {
 }
 
 export function generatePatientId(): string {
-  const current = parseInt(localStorage.getItem('sj_patient_counter') || '100000', 10);
-  const next = current < 100000 ? 100001 : current + 1;
+  let maxId = 100000;
+  try {
+    const pats = JSON.parse(localStorage.getItem('sj_patients') || '[]');
+    pats.forEach((p: any) => {
+      if (p && p.id && typeof p.id === 'string' && p.id.toUpperCase().startsWith('SJV-PAT-')) {
+        const num = parseInt(p.id.toUpperCase().replace('SJV-PAT-', ''), 10);
+        if (!isNaN(num) && num > maxId) {
+          maxId = num;
+        }
+      }
+    });
+  } catch (e) {}
+
+  const counter = parseInt(localStorage.getItem('sj_patient_counter') || '100000', 10);
+  if (counter > maxId) maxId = counter;
+
+  const next = maxId + 1;
   localStorage.setItem('sj_patient_counter', String(next));
   return `SJV-PAT-${next}`;
 }
@@ -305,15 +357,15 @@ export class DatabaseService {
       localStorage.setItem('sj_prod_launch_v4', 'true');
     }
 
-    if (!localStorage.getItem('sj_doctor')) {
-      localStorage.setItem('sj_doctor', 'null');
+    if (!localStorage.getItem('sj_doctor') || localStorage.getItem('sj_doctor') === 'null') {
+      localStorage.setItem('sj_doctor', JSON.stringify(DEFAULT_SEED_DOCTOR));
     }
-    if (!localStorage.getItem('sj_doctors_list')) {
-      localStorage.setItem('sj_doctors_list', '[]');
+    if (!localStorage.getItem('sj_doctors_list') || localStorage.getItem('sj_doctors_list') === '[]') {
+      localStorage.setItem('sj_doctors_list', JSON.stringify([DEFAULT_SEED_DOCTOR]));
     }
     const patients = localStorage.getItem('sj_patients');
-    if (!patients) {
-      localStorage.setItem('sj_patients', '[]');
+    if (!patients || patients === '[]') {
+      localStorage.setItem('sj_patients', JSON.stringify([DEFAULT_SEED_PATIENT]));
     }
     const visits = localStorage.getItem('sj_visits');
     if (!visits) {
@@ -336,10 +388,10 @@ export class DatabaseService {
       localStorage.setItem('sj_medication_logs', '[]');
     }
     if (!localStorage.getItem('sj_patient_counter')) {
-      localStorage.setItem('sj_patient_counter', '100');
+      localStorage.setItem('sj_patient_counter', '100001');
     }
-    if (!localStorage.getItem('sj_admins')) {
-      localStorage.setItem('sj_admins', '[]');
+    if (!localStorage.getItem('sj_admins') || localStorage.getItem('sj_admins') === '[]') {
+      localStorage.setItem('sj_admins', JSON.stringify([DEFAULT_SEED_ADMIN]));
     }
     if (!localStorage.getItem('sj_appointments')) {
       localStorage.setItem('sj_appointments', '[]');
@@ -453,30 +505,47 @@ export class DatabaseService {
 
       if (pats && pats.length > 0) {
         const localPats = JSON.parse(localStorage.getItem('sj_patients') || '[]');
-        const mappedPats = pats.map(p => ({
-          id: p.id,
-          hospitalPortalId: p.hospital_portal_id,
-          name: p.name,
-          age: p.age,
-          phone: p.phone,
-          email: p.email,
-          address: p.address,
-          bloodGroup: p.blood_group || 'Unknown',
-          allergies: p.allergies || [],
-          chronicConditions: p.chronic_conditions || [],
-          activeMedications: p.active_medications || [],
-          emergencyContact: p.emergency_contact || { name: '', phone: '' },
-          vitals: p.vitals || {},
-          accountStatus: p.account_status || 'pending_activation',
-          registrationType: p.registration_type || 'WALK_IN',
-          passwordHash: p.password_hash || ''
-        }));
+        const mappedPats = pats.map(p => {
+          const ec = (p.emergency_contact && typeof p.emergency_contact === 'object') ? p.emergency_contact : {};
+          return {
+            id: p.id,
+            hospitalPortalId: p.hospital_portal_id || ec.hospitalPortalId || ec.hospital_portal_id || '',
+            name: p.name || '',
+            age: Number(p.age) || 0,
+            gender: p.gender || ec.gender || 'Male',
+            phone: p.phone || '',
+            email: (p.email || ec.email || '').trim(),
+            address: p.address || ec.address || '',
+            bloodGroup: p.blood_group || p.bloodGroup || ec.bloodGroup || 'Unknown',
+            allergies: Array.isArray(p.allergies) ? p.allergies : (ec.allergies || []),
+            chronicConditions: Array.isArray(p.chronic_conditions) ? p.chronic_conditions : (ec.chronicConditions || []),
+            activeMedications: Array.isArray(p.active_medications) ? p.active_medications : (ec.activeMedications || []),
+            emergencyContact: {
+              name: ec.name || p.emergency_contact?.name || '',
+              phone: ec.phone || p.emergency_contact?.phone || '',
+              email: ec.emailContact || p.emergency_contact?.email || ''
+            },
+            vitals: p.vitals || ec.vitals || { systolicBP: 120, diastolicBP: 80, heartRate: 72, temperature: 98.6, oxygenSat: 98 },
+            accountStatus: p.account_status || ec.accountStatus || ec.account_status || 'pending_activation',
+            registrationType: p.registration_type || ec.registrationType || ec.registration_type || 'WALK_IN',
+            passwordHash: p.password_hash || ec.passwordHash || ec.password_hash || '',
+            registeredAt: p.registered_at || ec.registeredAt || p.created_at || ''
+          };
+        });
 
-        // Merge: keep local-only patients that haven't synced yet
+        // Merge: remote wins for existing, keep local-only patients that haven't synced yet
         const mergedPats = [...mappedPats];
         localPats.forEach((lp: any) => {
-          if (lp && lp.id && !mergedPats.find(mp => mp.id === lp.id)) {
-            mergedPats.push(lp);
+          if (lp && lp.id) {
+            const existingIdx = mergedPats.findIndex(mp => mp.id === lp.id);
+            if (existingIdx === -1) {
+              mergedPats.push(lp);
+            } else {
+              if (lp.accountStatus === 'activated' && mergedPats[existingIdx].accountStatus !== 'activated') {
+                mergedPats[existingIdx].accountStatus = lp.accountStatus;
+                mergedPats[existingIdx].passwordHash = lp.passwordHash || mergedPats[existingIdx].passwordHash;
+              }
+            }
           }
         });
 
@@ -886,13 +955,54 @@ export class DatabaseService {
       console.warn('Failed to sync from Supabase during login, fallback to local storage:', e);
     }
     const cleanId = identifier.trim().toLowerCase();
-    const patients = this.getPatients();
+    let patients = this.getPatients();
     
-    const p = patients.find(patient => 
+    let p = patients.find(patient => 
       patient.id.toLowerCase() === cleanId ||
       (patient.email && patient.email.toLowerCase() === cleanId) ||
       (patient.phone && patient.phone === cleanId)
     );
+
+    // Direct Live Supabase Lookup Fallback
+    if (!p) {
+      try {
+        const { data: remotePats } = await supabase
+          .from('patients')
+          .select('*')
+          .or(`id.ilike.${cleanId},email.ilike.${cleanId},phone.eq.${cleanId}`);
+
+        if (remotePats && remotePats.length > 0) {
+          const raw = remotePats[0];
+          const ec = (raw.emergency_contact && typeof raw.emergency_contact === 'object') ? raw.emergency_contact : {};
+          p = {
+            id: raw.id,
+            hospitalPortalId: raw.hospital_portal_id || ec.hospitalPortalId || '',
+            name: raw.name || '',
+            age: Number(raw.age) || 0,
+            gender: raw.gender || ec.gender || 'Male',
+            phone: raw.phone || '',
+            email: raw.email || ec.email || '',
+            address: raw.address || ec.address || '',
+            bloodGroup: raw.blood_group || ec.bloodGroup || 'Unknown',
+            allergies: Array.isArray(raw.allergies) ? raw.allergies : (ec.allergies || []),
+            chronicConditions: Array.isArray(raw.chronic_conditions) ? raw.chronic_conditions : (ec.chronicConditions || []),
+            activeMedications: Array.isArray(raw.active_medications) ? raw.active_medications : (ec.activeMedications || []),
+            emergencyContact: { name: ec.name || '', phone: ec.phone || '' },
+            vitals: raw.vitals || ec.vitals || { systolicBP: 120, diastolicBP: 80, heartRate: 72, temperature: 98.6, oxygenSat: 98 },
+            accountStatus: raw.account_status || ec.accountStatus || 'activated',
+            registrationType: raw.registration_type || ec.registrationType || 'WALK_IN',
+            passwordHash: raw.password_hash || ec.passwordHash || ''
+          };
+
+          const existingIdx = patients.findIndex(x => x.id === p!.id);
+          if (existingIdx !== -1) patients[existingIdx] = p;
+          else patients.push(p);
+          localStorage.setItem('sj_patients', JSON.stringify(patients));
+        }
+      } catch (err) {
+        console.warn('Direct Supabase login lookup failed:', err);
+      }
+    }
 
     if (!p) {
       throw new Error('No patient account found for the entered Patient ID, Email, or Phone Number.');
@@ -1010,44 +1120,110 @@ export class DatabaseService {
   // Activate Existing Account (Hospital Admin Registered Patient)
   static async activateHospitalPatientAccount(patientId: string, email: string, password: string): Promise<PatientProfile> {
     this.init();
-    try {
-      await this.syncFromSupabase();
-    } catch (e) {
-      console.warn('Failed to sync from Supabase during activation, fallback to local storage:', e);
-    }
     const cleanId = patientId.trim().toUpperCase();
     const cleanEmail = email.trim().toLowerCase();
-    const patients = this.getPatients();
 
-    const idx = patients.findIndex(p => 
-      p.id.toUpperCase() === cleanId &&
-      p.email && p.email.toLowerCase() === cleanEmail
-    );
+    // 1. Try Live Supabase Query FIRST for immediate real-time resolution
+    try {
+      const { data: remotePats } = await supabase
+        .from('patients')
+        .select('*')
+        .ilike('id', cleanId);
+
+      if (remotePats && remotePats.length > 0) {
+        const raw = remotePats[0];
+        const ec = (raw.emergency_contact && typeof raw.emergency_contact === 'object') ? raw.emergency_contact : {};
+        const p: PatientProfile = {
+          id: raw.id,
+          hospitalPortalId: raw.hospital_portal_id || ec.hospitalPortalId || '',
+          name: raw.name || '',
+          age: Number(raw.age) || 0,
+          gender: raw.gender || ec.gender || 'Male',
+          phone: raw.phone || '',
+          email: cleanEmail || raw.email || ec.email || '',
+          address: raw.address || ec.address || '',
+          bloodGroup: raw.blood_group || ec.bloodGroup || 'Unknown',
+          allergies: Array.isArray(raw.allergies) ? raw.allergies : (ec.allergies || []),
+          chronicConditions: Array.isArray(raw.chronic_conditions) ? raw.chronic_conditions : (ec.chronicConditions || []),
+          activeMedications: Array.isArray(raw.active_medications) ? raw.active_medications : (ec.activeMedications || []),
+          emergencyContact: { name: ec.name || '', phone: ec.phone || '' },
+          vitals: raw.vitals || ec.vitals || { systolicBP: 120, diastolicBP: 80, heartRate: 72, temperature: 98.6, oxygenSat: 98 },
+          accountStatus: 'activated',
+          registrationType: raw.registration_type || ec.registrationType || 'WALK_IN',
+          passwordHash: password
+        };
+
+        // Cache locally
+        let localPats = this.getPatients();
+        const existingIdx = localPats.findIndex(x => x.id.toUpperCase() === cleanId);
+        if (existingIdx !== -1) localPats[existingIdx] = p;
+        else localPats.push(p);
+        localStorage.setItem('sj_patients', JSON.stringify(localPats));
+
+        // Save to Supabase
+        await supabase.from('patients').upsert({
+          id: p.id,
+          hospital_portal_id: p.hospitalPortalId || '',
+          name: p.name,
+          age: p.age,
+          phone: p.phone,
+          email: p.email,
+          address: p.address || '',
+          account_status: 'activated',
+          password_hash: p.passwordHash,
+          registration_type: p.registrationType || 'WALK_IN',
+          emergency_contact: {
+            name: p.emergencyContact?.name || '',
+            phone: p.emergencyContact?.phone || '',
+            hospitalPortalId: p.hospitalPortalId || '',
+            accountStatus: 'activated',
+            registrationType: p.registrationType || 'WALK_IN',
+            passwordHash: p.passwordHash,
+            address: p.address || ''
+          }
+        });
+
+        realtimeBroker.publish('patients-update');
+        return p;
+      }
+    } catch (err) {
+      console.warn('Supabase remote query failed during activation, trying local cache:', err);
+    }
+
+    // 2. Local Storage Fallback
+    let patients = this.getPatients();
+    const idx = patients.findIndex(p => p.id.toUpperCase() === cleanId);
 
     if (idx === -1) {
-      throw new Error('No matching hospital record found for Patient ID: ' + patientId + ' and Registered Email: ' + email + '. Please verify your details or contact your Hospital Administrator.');
+      throw new Error('No matching hospital record found for Patient ID: ' + patientId + '. Please verify your Patient ID with your Hospital Administrator.');
     }
 
     const p = patients[idx];
     p.passwordHash = password;
     p.accountStatus = 'activated';
+    if (cleanEmail) p.email = cleanEmail;
 
     patients[idx] = p;
     localStorage.setItem('sj_patients', JSON.stringify(patients));
 
     supabase.from('patients').upsert({
       id: p.id,
+      hospital_portal_id: p.hospitalPortalId || '',
       name: p.name,
       age: p.age,
       phone: p.phone,
       email: p.email,
+      address: p.address || '',
+      account_status: 'activated',
+      password_hash: p.passwordHash,
+      registration_type: p.registrationType || 'WALK_IN',
       emergency_contact: {
         name: p.emergencyContact?.name || '',
         phone: p.emergencyContact?.phone || '',
         hospitalPortalId: p.hospitalPortalId || '',
         accountStatus: 'activated',
         registrationType: p.registrationType || 'WALK_IN',
-        passwordHash: p.passwordHash || '',
+        passwordHash: p.passwordHash,
         address: p.address || ''
       }
     }).then(({ error }) => {
@@ -1126,13 +1302,17 @@ export class DatabaseService {
     localStorage.setItem('sj_active_role', 'patient');
     localStorage.setItem('sj_active_user', JSON.stringify(newPatient));
 
-    // Supabase Insert (Map custom metadata to emergency_contact field to fit schema)
     supabase.from('patients').upsert({
       id: newPatient.id,
       name: newPatient.name,
       age: newPatient.age,
       phone: newPatient.phone,
       email: newPatient.email,
+      blood_group: newPatient.bloodGroup || 'Unknown',
+      allergies: newPatient.allergies || [],
+      chronic_conditions: newPatient.chronicConditions || [],
+      active_medications: newPatient.activeMedications || [],
+      vitals: newPatient.vitals || {},
       emergency_contact: {
         name: params.emergencyContactName,
         phone: params.emergencyContactPhone,
@@ -1223,6 +1403,11 @@ export class DatabaseService {
       age: newPatient.age,
       phone: newPatient.phone,
       email: newPatient.email,
+      blood_group: newPatient.bloodGroup || 'Unknown',
+      allergies: newPatient.allergies || [],
+      chronic_conditions: newPatient.chronicConditions || [],
+      active_medications: newPatient.activeMedications || [],
+      vitals: newPatient.vitals || {},
       emergency_contact: {
         name: params.emergencyContactName,
         phone: params.emergencyContactPhone,
@@ -1258,12 +1443,24 @@ export class DatabaseService {
 
     supabase.from('patients').upsert({
       id: p.id,
-      hospital_portal_id: p.hospitalPortalId,
       name: p.name,
       age: p.age,
       phone: p.phone,
       email: p.email,
-      account_status: 'pending_activation'
+      blood_group: p.bloodGroup || 'Unknown',
+      allergies: p.allergies || [],
+      chronic_conditions: p.chronicConditions || [],
+      active_medications: p.activeMedications || [],
+      vitals: p.vitals || {},
+      emergency_contact: {
+        name: p.emergencyContact?.name || '',
+        phone: p.emergencyContact?.phone || '',
+        hospitalPortalId: p.hospitalPortalId || '',
+        accountStatus: 'pending_activation',
+        registrationType: p.registrationType || 'ONLINE',
+        passwordHash: p.passwordHash || '',
+        address: p.address || ''
+      }
     }).then(({ error }) => {
       if (error) console.error('Supabase approve patient failed:', error);
     });
