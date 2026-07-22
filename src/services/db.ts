@@ -994,9 +994,11 @@ export class DatabaseService {
     }
     localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
 
-    // Serialize clinic_name and passwordHash to bypass supabase schema constraints
+    // Serialize clinic_name, department, medicalRegNumber and passwordHash to match Supabase public.doctors table schema
     const serializedClinicName = JSON.stringify({
       clinicName: newDoc.clinicName,
+      department: newDoc.department,
+      medicalRegNumber: newDoc.medicalRegNumber,
       passwordHash: password
     });
 
@@ -1006,8 +1008,6 @@ export class DatabaseService {
       name: newDoc.name,
       email: newDoc.email,
       specialty: newDoc.specialty,
-      department: newDoc.department,
-      medical_reg_number: newDoc.medicalRegNumber,
       clinic_name: serializedClinicName,
       avatar_url: newDoc.avatarUrl,
       hospital_id: newDoc.hospitalId,
@@ -1016,6 +1016,7 @@ export class DatabaseService {
 
     if (dbError) {
       console.error('Supabase doctor register table insert failed:', dbError);
+      throw new Error(`Database error: ${dbError.message}`);
     }
 
     // Notify real-time broker for Hospital Admin Approval UI
