@@ -356,7 +356,7 @@ export const AdminAccountCenter: React.FC<AdminAccountCenterProps> = ({ onNaviga
                 Hospital Portal ID (Immutable)
               </span>
               <div className="flex items-center justify-between gap-2 font-mono text-sm font-black text-teal-300">
-                <span>{admin?.hospitalPortalId || 'SJV-HTPL-6444'}</span>
+                <span>{admin?.hospitalPortalId || admin?.id || 'N/A'}</span>
                 <button
                   type="button"
                   onClick={handleCopyPortalId}
@@ -841,7 +841,7 @@ export const AdminAccountCenter: React.FC<AdminAccountCenterProps> = ({ onNaviga
                 Hospital Portal ID (Read-Only)
               </span>
               <span className="text-lg font-black font-mono text-teal-900 mt-0.5 block">
-                {admin?.hospitalPortalId || 'SJV-HTPL-6444'}
+                {admin?.hospitalPortalId || admin?.id || 'N/A'}
               </span>
               <p className="text-[11px] text-teal-700 font-medium mt-0.5">
                 🔒 Permanently bound to your Supabase tenant. Never regenerated on logins.

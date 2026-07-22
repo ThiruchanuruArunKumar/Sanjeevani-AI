@@ -235,7 +235,7 @@ export const DoctorAuth: React.FC<DoctorAuthProps> = ({ onNavigate }) => {
                         <input 
                           type="text" 
                           required
-                          placeholder="e.g. SJV-HTPL-6444" 
+                          placeholder="e.g. Copy Hospital Portal ID from Admin Dashboard" 
                           value={hospitalPortalId}
                           onChange={(e) => setHospitalPortalId(e.target.value)}
                           className="w-full pl-9 pr-3 py-2 rounded-xl border border-teal-300 font-mono text-xs font-bold focus:outline-none focus:ring-2 focus:ring-teal-500/20 bg-teal-50/30"

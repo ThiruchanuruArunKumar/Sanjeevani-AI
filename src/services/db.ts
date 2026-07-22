@@ -2137,9 +2137,20 @@ export class DatabaseService {
     this.init();
     try {
       let query = supabase.from('doctors').select('*');
-      if (hospitalPortalId && hospitalPortalId.trim()) {
-        query = query.ilike('hospital_id', hospitalPortalId.trim());
+      const cleanHId = hospitalPortalId?.trim();
+
+      // Collect all possible valid Hospital IDs for this Admin
+      let possibleHospitalIds = cleanHId ? [cleanHId] : [];
+      if (cleanHId) {
+        const admins = this.getAdmins();
+        const matchedAdmin = admins.find(a => (a.hospitalPortalId && a.hospitalPortalId.toUpperCase() === cleanHId.toUpperCase()) || (a.id && a.id.toUpperCase() === cleanHId.toUpperCase()));
+        if (matchedAdmin) {
+          if (matchedAdmin.hospitalPortalId) possibleHospitalIds.push(matchedAdmin.hospitalPortalId);
+          if (matchedAdmin.id) possibleHospitalIds.push(matchedAdmin.id);
+        }
       }
+      possibleHospitalIds = Array.from(new Set(possibleHospitalIds));
+
       const { data: dbDocs, error } = await query;
       if (!error && dbDocs) {
         const remoteDocs: DoctorProfile[] = dbDocs.map((d: any) => {
@@ -2166,29 +2177,25 @@ export class DatabaseService {
           };
         });
 
-        // Merge with existing local storage items
-        const localDocs = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
-        const map = new Map<string, DoctorProfile>();
-        localDocs.forEach((d: DoctorProfile) => { if (d && d.id) map.set(d.id, d); });
-        remoteDocs.forEach((d: DoctorProfile) => { if (d && d.id) map.set(d.id, d); });
+        // Save fresh remote database response to local storage
+        localStorage.setItem('sj_doctors_list', JSON.stringify(remoteDocs));
 
-        const mergedDocsList = Array.from(map.values());
-        localStorage.setItem('sj_doctors_list', JSON.stringify(mergedDocsList));
-
-        const pendingDocs = remoteDocs.filter(d => d.approvalStatus === 'pending');
-        console.log(`[SYNC] Admin ID: ${this.getActiveSession().user?.id || 'N/A'}`);
-        console.log(`[SYNC] Hospital ID: ${hospitalPortalId || 'N/A'}`);
-        console.log(`[SYNC] Doctor Request Count: ${pendingDocs.length}`);
-        console.log(`[SYNC] API Response: ${remoteDocs.length} total fetched`);
-        console.log(`[SYNC] Database Query Result:`, pendingDocs);
-
-        if (hospitalPortalId && hospitalPortalId.trim()) {
-          return mergedDocsList.filter(d => d.hospitalId && d.hospitalId.trim().toUpperCase() === hospitalPortalId.trim().toUpperCase());
+        let filteredDocs = remoteDocs;
+        if (possibleHospitalIds.length > 0) {
+          filteredDocs = remoteDocs.filter(d => d.hospitalId && possibleHospitalIds.some(h => h.toUpperCase() === (d.hospitalId || '').trim().toUpperCase()));
         }
-        return mergedDocsList;
+
+        const pendingDocs = filteredDocs.filter(d => d.approvalStatus === 'pending');
+        console.log(`[SUPABASE QUERY] Logged-in Admin ID: ${this.getActiveSession().user?.id || 'N/A'}`);
+        console.log(`[SUPABASE QUERY] Hospital ID entered/queried: ${hospitalPortalId || 'N/A'}`);
+        console.log(`[SUPABASE QUERY] Hospital ID saved in Supabase:`, filteredDocs.map(d => d.hospitalId));
+        console.log(`[SUPABASE QUERY] Pending Doctor Request Count: ${pendingDocs.length}`);
+        console.log(`[SUPABASE QUERY] Database Query Result:`, pendingDocs);
+
+        return filteredDocs;
       }
     } catch (e) {
-      console.warn('[SYNC] Supabase fetchDoctorsFromSupabase failed, fallback to local storage:', e);
+      console.warn('[SYNC] Supabase fetchDoctorsFromSupabase failed, fallback to cache:', e);
     }
 
     return this.getDoctors(hospitalPortalId);
