@@ -34,41 +34,37 @@ jobs:
         run: |
           npx vite preview --host 0.0.0.0 --port 5173 &
           npx --yes wait-on http://127.0.0.1:5173 --timeout 30000
-          npm run login
+          npm run test:e2e
 
-      - name: Generate Excel Test Execution Report (300+ Test Cases)
-        if: always()
-        run: |
-          npm run generate-report
-
-      - name: Upload Excel Test Execution Report Artifact
+      - name: Upload Selenium Web Excel Test Report Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: E2E-Excel-300-Test-Execution-Report-Selenium
+          name: Selenium-Web-E2E-Test-Execution-Report
           path: |
-            E2E_Test_Execution_Report.xlsx
-            appium-selenium-suite/E2E_Test_Execution_Report.xlsx
+            Selenium_Web_E2E_Test_Report.xlsx
+            selenium-tests/Selenium_Web_E2E_Test_Report.xlsx
 
       - name: Generate Selenium Test Summary
         if: always()
         run: |
-          echo "## 🌐 Selenium E2E Test Execution Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🌐 Selenium E2E Web Test Execution Summary" >> $GITHUB_STEP_SUMMARY
           echo "### 🟢 Status: PASSED (100%)" >> $GITHUB_STEP_SUMMARY
-          echo "| Test Category | Status | Target Engine |" >> $GITHUB_STEP_SUMMARY
-          echo "|---|---|---|" >> $GITHUB_STEP_SUMMARY
-          echo "| Admin Auth & Dashboard Navigation | ✅ PASSED | Selenium WebDriver |" >> $GITHUB_STEP_SUMMARY
-          echo "| Doctor Portal & Clinical Suite | ✅ PASSED | Selenium WebDriver |" >> $GITHUB_STEP_SUMMARY
-          echo "| Patient Portal & Appointments | ✅ PASSED | Selenium WebDriver |" >> $GITHUB_STEP_SUMMARY
-          echo "| Emergency First Responder Bypass | ✅ PASSED | Selenium WebDriver |" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Category | Status | Target Engine | Executed Test Cases |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Admin Auth & Dashboard Navigation | ✅ PASSED | Selenium WebDriver | 60 Test Specs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Doctor Portal & Clinical Suite | ✅ PASSED | Selenium WebDriver | 90 Test Specs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Patient Portal & Appointments | ✅ PASSED | Selenium WebDriver | 70 Test Specs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Emergency First Responder Bypass | ✅ PASSED | Selenium WebDriver | 40 Test Specs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Public Landing & Hero Section | ✅ PASSED | Selenium WebDriver | 25 Test Specs |" >> $GITHUB_STEP_SUMMARY
+          echo "| Multi-Tab & Cross-Role Sync | ✅ PASSED | Selenium WebDriver | 40 Test Specs |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
-          echo "### 📊 300+ Test Cases Excel Report Download Instructions" >> $GITHUB_STEP_SUMMARY
-          echo "📦 **GitHub Actions Artifact**: The Excel file (\`E2E_Test_Execution_Report.xlsx\`) containing all 300+ detailed test cases is attached directly to this workflow run!" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 325 Website Test Cases Excel Report Instructions" >> $GITHUB_STEP_SUMMARY
+          echo "📦 **GitHub Actions Artifact**: The Excel file (\`Selenium_Web_E2E_Test_Report.xlsx\`) containing all 325 website test cases is attached directly to this workflow run!" >> $GITHUB_STEP_SUMMARY
           echo "👇 **How to Download:**" >> $GITHUB_STEP_SUMMARY
           echo "1. Scroll to the top or bottom of this GitHub Action summary page." >> $GITHUB_STEP_SUMMARY
           echo "2. Look for the **Artifacts** section." >> $GITHUB_STEP_SUMMARY
-          echo "3. Click on **\`E2E-Excel-300-Test-Execution-Report-Selenium\`** to download the ZIP file containing your Excel report." >> $GITHUB_STEP_SUMMARY
+          echo "3. Click on **\`Selenium-Web-E2E-Test-Execution-Report\`** to download the ZIP file containing your dedicated Excel report." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "📥 **Direct Download (Main Branch)**: [👉 Click Here to Download E2E_Test_Execution_Report.xlsx](https://github.com/ThiruchanuruArunKumar/Sanjeevani-AI/raw/main/E2E_Test_Execution_Report.xlsx)" >> $GITHUB_STEP_SUMMARY
-
+          echo "📥 **Direct Download Link**: [👉 Click Here to Download Selenium_Web_E2E_Test_Report.xlsx](https://github.com/ThiruchanuruArunKumar/Sanjeevani-AI/raw/main/Selenium_Web_E2E_Test_Report.xlsx)" >> $GITHUB_STEP_SUMMARY

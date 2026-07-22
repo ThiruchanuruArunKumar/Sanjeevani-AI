@@ -12,10 +12,12 @@
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist",
     "login": "mocha selenium-tests/tests/login.test.js --timeout 30000",
-    "test:e2e": "mocha selenium-tests/tests/*.test.js --timeout 30000",
-    "test:appium": "mocha appium-selenium-suite/tests/*.test.js --timeout 45000 && node appium-selenium-suite/generate-excel-report.js",
-    "test:load": "node load-tests/baseline-load-test.js",
-    "generate-report": "node appium-selenium-suite/generate-excel-report.js"
+    "test:e2e": "mocha selenium-tests/tests/*.test.js --timeout 30000 && node generate-selenium-excel.js",
+    "test:appium": "mocha appium-selenium-suite/tests/*.test.js --timeout 45000 && node generate-appium-excel.js",
+    "test:load": "mocha load-tests/load-300-scenarios.test.js --timeout 30000 && node load-tests/baseline-load-test.js && node generate-load-excel.js",
+    "test:vulnerability": "node generate-vulnerability-excel.js",
+    "generate-reports-all": "node generate-selenium-excel.js && node generate-appium-excel.js && node generate-load-excel.js && node generate-vulnerability-excel.js",
+    "generate-report": "node generate-selenium-excel.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
