@@ -26,15 +26,18 @@ export const ManageDoctors: React.FC<ManageDoctorsProps> = ({ onNavigate }) => {
   useEffect(() => {
     if (!user || !portalId) return;
 
-    const loadDoctors = () => {
-      const hospitalDocs = DatabaseService.getDoctors(portalId);
+    const loadDoctors = async () => {
+      const hospitalDocs = await DatabaseService.fetchDoctorsFromSupabase(portalId);
       setDoctors(hospitalDocs);
     };
 
     loadDoctors();
-    DatabaseService.syncFromSupabase().then(loadDoctors);
+    const pollInterval = setInterval(loadDoctors, 5000);
     const unsub = realtimeBroker.subscribe('doctors-update', loadDoctors);
-    return () => unsub();
+    return () => {
+      clearInterval(pollInterval);
+      unsub();
+    };
   }, [user?.id, portalId]);
 
   const handleApproval = async (doctorId: string, status: 'accepted' | 'rejected') => {
@@ -43,7 +46,7 @@ export const ManageDoctors: React.FC<ManageDoctorsProps> = ({ onNavigate }) => {
     } else {
       await DatabaseService.rejectDoctor(doctorId);
     }
-    const updated = DatabaseService.getDoctors(portalId);
+    const updated = await DatabaseService.fetchDoctorsFromSupabase(portalId);
     setDoctors(updated);
   };
 

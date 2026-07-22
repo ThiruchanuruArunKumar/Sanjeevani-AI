@@ -19,9 +19,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
   useEffect(() => {
     if (!user || !portalId) return;
 
-    const loadData = () => {
+    const loadData = async () => {
       const hospitalApts = DatabaseService.getAppointments(portalId);
-      const hospitalDocs = DatabaseService.getDoctors(portalId);
+      const hospitalDocs = await DatabaseService.fetchDoctorsFromSupabase(portalId);
       const hospitalPats = DatabaseService.getPatients(portalId);
       const hospitalNotes = DatabaseService.getConsultationNotes(portalId);
 
@@ -29,10 +29,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
       setDoctors(hospitalDocs);
       setPatients(hospitalPats);
       setConsultationNotes(hospitalNotes);
+
+      const pendingCount = hospitalDocs.filter(d => d.approvalStatus === 'pending').length;
+      console.log(`[DASHBOARD DEBUG] Admin ID: ${user.id} | Hospital ID: ${portalId} | Pending Requests: ${pendingCount} | Total Doctors: ${hospitalDocs.length}`);
     };
 
     loadData();
-    DatabaseService.syncFromSupabase().then(loadData);
+
+    // Polling fallback every 5 seconds for absolute cross-device consistency
+    const pollInterval = setInterval(loadData, 5000);
 
     const unsubApts = realtimeBroker.subscribe('appointments-update', loadData);
     const unsubDocs = realtimeBroker.subscribe('doctors-update', loadData);
@@ -40,6 +45,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) =>
     const unsubNotes = realtimeBroker.subscribe('consultation-notes-update', loadData);
 
     return () => {
+      clearInterval(pollInterval);
       unsubApts();
       unsubDocs();
       unsubPats();

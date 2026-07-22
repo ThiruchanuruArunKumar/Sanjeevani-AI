@@ -2092,10 +2092,71 @@ export class DatabaseService {
     doctors = doctors.filter(d => d !== null && d !== undefined);
     
     if (hospitalPortalId) {
-      return doctors.filter(d => d.hospitalId?.trim() === hospitalPortalId.trim());
+      return doctors.filter(d => d.hospitalId?.trim().toUpperCase() === hospitalPortalId.trim().toUpperCase());
     }
     
     return doctors;
+  }
+
+  static async fetchDoctorsFromSupabase(hospitalPortalId?: string): Promise<DoctorProfile[]> {
+    this.init();
+    try {
+      let query = supabase.from('doctors').select('*');
+      if (hospitalPortalId && hospitalPortalId.trim()) {
+        query = query.ilike('hospital_id', hospitalPortalId.trim());
+      }
+      const { data: dbDocs, error } = await query;
+      if (!error && dbDocs) {
+        const remoteDocs: DoctorProfile[] = dbDocs.map((d: any) => {
+          let actualClinicName = d.clinic_name || '';
+          let passwordHash = '';
+          try {
+            if (d.clinic_name && d.clinic_name.trim().startsWith('{')) {
+              const parsed = JSON.parse(d.clinic_name);
+              actualClinicName = parsed.clinicName || '';
+              passwordHash = parsed.passwordHash || '';
+            }
+          } catch (e) {}
+
+          return {
+            id: d.id,
+            name: d.name,
+            email: d.email,
+            specialty: d.specialty,
+            clinicName: actualClinicName,
+            avatarUrl: d.avatar_url,
+            hospitalId: d.hospital_id,
+            approvalStatus: d.approval_status || 'accepted',
+            passwordHash
+          };
+        });
+
+        // Merge with existing local storage items
+        const localDocs = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+        const map = new Map<string, DoctorProfile>();
+        localDocs.forEach((d: DoctorProfile) => { if (d && d.id) map.set(d.id, d); });
+        remoteDocs.forEach((d: DoctorProfile) => { if (d && d.id) map.set(d.id, d); });
+
+        const mergedDocsList = Array.from(map.values());
+        localStorage.setItem('sj_doctors_list', JSON.stringify(mergedDocsList));
+
+        const pendingDocs = remoteDocs.filter(d => d.approvalStatus === 'pending');
+        console.log(`[SYNC] Admin ID: ${this.getActiveSession().user?.id || 'N/A'}`);
+        console.log(`[SYNC] Hospital ID: ${hospitalPortalId || 'N/A'}`);
+        console.log(`[SYNC] Doctor Request Count: ${pendingDocs.length}`);
+        console.log(`[SYNC] API Response: ${remoteDocs.length} total fetched`);
+        console.log(`[SYNC] Database Query Result:`, pendingDocs);
+
+        if (hospitalPortalId && hospitalPortalId.trim()) {
+          return mergedDocsList.filter(d => d.hospitalId && d.hospitalId.trim().toUpperCase() === hospitalPortalId.trim().toUpperCase());
+        }
+        return mergedDocsList;
+      }
+    } catch (e) {
+      console.warn('[SYNC] Supabase fetchDoctorsFromSupabase failed, fallback to local storage:', e);
+    }
+
+    return this.getDoctors(hospitalPortalId);
   }
 
   static addDoctor(doctorData: { name: string; email: string; specialty: string; clinicName: string; hospitalId: string; approvalStatus?: 'pending' | 'accepted' | 'rejected' }): DoctorProfile {
