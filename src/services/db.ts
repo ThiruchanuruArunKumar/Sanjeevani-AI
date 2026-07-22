@@ -1846,9 +1846,10 @@ export class DatabaseService {
       passwordHash: password
     });
 
-    // Save to Supabase permanently
+    // Save to Supabase permanently (including hospital_portal_id)
     const { error: dbError } = await supabase.from('admins').upsert({
       id: newAdmin.id,
+      hospital_portal_id: newAdmin.hospitalPortalId,
       hospital_name: newAdmin.hospitalName,
       address: serializedAddress,
       admin_name: newAdmin.adminName,
@@ -1864,7 +1865,7 @@ export class DatabaseService {
   static async updateAdminProfile(updatedAdmin: HospitalAdminProfile) {
     this.init();
     const admins = this.getAdmins();
-    const idx = admins.findIndex(a => a.id === updatedAdmin.id || a.hospitalPortalId === updatedAdmin.hospitalPortalId);
+    const idx = admins.findIndex(a => a.id === updatedAdmin.id || a.hospitalPortalId === updatedAdmin.hospitalPortalId || (a.email && a.email.toLowerCase() === updatedAdmin.email?.toLowerCase()));
     
     // PERMANENT PORTAL ID GUARD: Never regenerate hospitalPortalId
     const targetAdmin: HospitalAdminProfile = idx !== -1 ? {
@@ -1902,6 +1903,7 @@ export class DatabaseService {
 
     const { error: dbError } = await supabase.from('admins').upsert({
       id: targetAdmin.id,
+      hospital_portal_id: targetAdmin.hospitalPortalId,
       hospital_name: targetAdmin.hospitalName,
       address: serializedAddress,
       admin_name: targetAdmin.adminName,
@@ -1948,16 +1950,17 @@ export class DatabaseService {
       console.warn('Supabase admin lookup failed:', e);
     }
 
+    // Check local storage for existing admin record to preserve Portal ID across devices
+    const localAdmins = this.getAdmins();
+    const localAdminMatch = localAdmins.find(a => a && a.email && a.email.trim().toLowerCase() === cleanEmail);
+
     // Fallback to local storage if not found in Supabase
     if (!dbAdmin) {
-      const localAdmins = this.getAdmins();
-      const localAdmin = localAdmins.find(a => a && a.email && a.email.trim().toLowerCase() === cleanEmail);
-
-      if (localAdmin) {
-        let savedPassword = (localAdmin as any).passwordHash || '';
-        if (!savedPassword && localAdmin.address && localAdmin.address.trim().startsWith('{')) {
+      if (localAdminMatch) {
+        let savedPassword = (localAdminMatch as any).passwordHash || '';
+        if (!savedPassword && localAdminMatch.address && localAdminMatch.address.trim().startsWith('{')) {
           try {
-            savedPassword = JSON.parse(localAdmin.address).passwordHash || '';
+            savedPassword = JSON.parse(localAdminMatch.address).passwordHash || '';
           } catch (e) {}
         }
 
@@ -1966,8 +1969,8 @@ export class DatabaseService {
         }
 
         localStorage.setItem('sj_active_role', 'admin');
-        localStorage.setItem('sj_active_user', JSON.stringify(localAdmin));
-        return localAdmin;
+        localStorage.setItem('sj_active_user', JSON.stringify(localAdminMatch));
+        return localAdminMatch;
       }
 
       if (authSuccess) await supabase.auth.signOut();
@@ -1989,13 +1992,16 @@ export class DatabaseService {
       }
     }
 
-    let portalId = dbAdmin.hospital_portal_id || dbAdmin.id;
+    // Guarantee exact SAME Portal ID from Supabase dbAdmin.hospital_portal_id or local storage match
+    let portalId = dbAdmin.hospital_portal_id || localAdminMatch?.hospitalPortalId;
     if (!portalId || !portalId.startsWith('SJV-HTPL-')) {
       portalId = generateHospitalPortalId();
-      supabase.from('admins').update({ hospital_portal_id: portalId }).eq('id', dbAdmin.id).then(({ error }) => {
-        if (error) console.error('Failed to update hospital_portal_id in Supabase:', error);
-      });
     }
+
+    // Always update Supabase database so hospital_portal_id is permanently stored and identical everywhere
+    supabase.from('admins').update({ hospital_portal_id: portalId }).eq('id', dbAdmin.id).then(({ error }) => {
+      if (error) console.error('Failed to sync hospital_portal_id in Supabase:', error);
+    });
 
     let actualAddress = dbAdmin.address || '';
     if (actualAddress.trim().startsWith('{')) {
