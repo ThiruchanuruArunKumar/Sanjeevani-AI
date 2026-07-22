@@ -97,7 +97,7 @@ export const App: React.FC = () => {
       StatusBar.setBackgroundColor({ color: '#0f172a' }).catch(() => {});
       SplashScreen.hide().catch(() => {});
 
-      const backListener = CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      const backListener = CapacitorApp.addListener('backButton', ({ canGoBack }: { canGoBack: boolean }) => {
         const rootViews = ['welcome', 'role-selection', 'doctor/login', 'patient/login', 'admin/login', 'doctor/dashboard', 'patient/dashboard', 'admin/dashboard'];
         if (canGoBack && !rootViews.includes(currentView)) {
           window.history.back();
@@ -109,7 +109,7 @@ export const App: React.FC = () => {
       });
 
       return () => {
-        backListener.then(l => l.remove()).catch(() => {});
+        backListener.then((l: { remove: () => void }) => l.remove()).catch(() => {});
       };
     }
   }, [currentView]);

@@ -199,8 +199,8 @@ export const PatientAuth: React.FC<PatientAuthProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center items-center">
-      <div className="max-w-md mx-auto w-full min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between p-4 relative overflow-x-hidden shadow-2xl border-x border-slate-200/60 dark:border-slate-800/80">
+    <div className="min-h-screen bg-slate-100 dark:bg-slate-950 flex flex-col justify-center items-center p-0 md:p-6">
+      <div className="w-full max-w-md md:max-w-4xl mx-auto min-h-screen md:min-h-0 md:my-auto bg-white dark:bg-slate-950 text-slate-900 dark:text-white flex flex-col justify-between p-4 md:p-8 relative overflow-x-hidden md:rounded-3xl shadow-2xl border-x md:border border-slate-200/60 dark:border-slate-800/80">
         
         {/* Top Header Navigation */}
         <div className="flex items-center justify-between py-3 border-b border-slate-200/80 dark:border-slate-800">
