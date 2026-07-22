@@ -1,6 +1,7 @@
 // Under c:\Arun\SIMATS\PDD Sanjeevani Ai\src\routes\Shared\Profile.tsx
 import React, { useState, useEffect } from 'react';
 import { DatabaseService, DoctorProfile, PatientProfile, HospitalAdminProfile, realtimeBroker } from '../../services/db';
+import { AdminAccountCenter } from '../Admin/AdminAccountCenter';
 import { 
   User, 
   Mail, 
@@ -22,6 +23,10 @@ interface ProfileProps {
 
 export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
   const { role, user } = DatabaseService.getActiveSession();
+
+  if (role === 'admin') {
+    return <AdminAccountCenter onNavigate={onNavigate} />;
+  }
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -171,7 +176,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
 
   const handleBack = () => {
     if (role === 'doctor') onNavigate('doctor/dashboard');
-    else if (role === 'admin') onNavigate('admin/dashboard');
+    else if ((role as any) === 'admin') onNavigate('admin/dashboard');
     else onNavigate('patient/dashboard');
   };
 
@@ -195,7 +200,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
           <span className="cursor-pointer hover:text-primary dark:hover:text-teal-400" onClick={handleBack}>Dashboard</span>
           <ChevronRight className="h-3 w-3" />
           <span className="text-primary dark:text-teal-400">
-            {role === 'doctor' ? 'Doctor Profile' : role === 'admin' ? 'Admin Profile' : 'Patient Profile'}
+            {role === 'doctor' ? 'Doctor Profile' : (role as any) === 'admin' ? 'Admin Profile' : 'Patient Profile'}
           </span>
         </div>
       </div>
@@ -233,9 +238,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate }) => {
             </div>
 
             <div>
-              <h3 className="text-base font-extrabold text-slate-800">{role === 'admin' ? user.adminName : user.name}</h3>
+              <h3 className="text-base font-extrabold text-slate-800">{(role as any) === 'admin' ? user.adminName : user.name}</h3>
               <span className="text-[10px] text-primary font-bold uppercase tracking-wider block mt-1">
-                {role === 'doctor' ? user.specialty : role === 'admin' ? user.hospitalName : `Patient ID: ${user.id}`}
+                {role === 'doctor' ? user.specialty : (role as any) === 'admin' ? user.hospitalName : `Patient ID: ${user.id}`}
               </span>
             </div>
 

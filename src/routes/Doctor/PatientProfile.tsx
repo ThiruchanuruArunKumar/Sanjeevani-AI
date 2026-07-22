@@ -1,6 +1,5 @@
-// Under c:\Arun\SIMATS\PDD Sanjeevani Ai\src\routes\Doctor\PatientProfile.tsx
 import React, { useState, useEffect } from 'react';
-import { DatabaseService, PatientProfile as PP, ClinicalVisit, UploadedReport, realtimeBroker } from '../../services/db';
+import { DatabaseService, PatientProfile as PP, ClinicalVisit, UploadedReport, RecommendedTestRecord, realtimeBroker } from '../../services/db';
 import { 
   Stethoscope, 
   ArrowLeft, 
@@ -26,6 +25,7 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({ patientId, onNav
   const [patient, setPatient] = useState<PP | null>(null);
   const [visits, setVisits] = useState<ClinicalVisit[]>([]);
   const [reports, setReports] = useState<UploadedReport[]>([]);
+  const [recommendedTests, setRecommendedTests] = useState<RecommendedTestRecord[]>([]);
   
   // Clinical Visit Creator Form State
   const [showAddVisit, setShowAddVisit] = useState(false);
@@ -46,6 +46,7 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({ patientId, onNav
       setPatient(p);
       setVisits(DatabaseService.getVisits(patientId));
       setReports(DatabaseService.getReports(patientId));
+      setRecommendedTests(DatabaseService.getRecommendedTests(patientId));
       
       // Seed vitals into editor defaults
       setSysBP(p.vitals.systolicBP);
@@ -64,8 +65,13 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({ patientId, onNav
       loadData();
     });
 
+    const unsubRecTests = realtimeBroker.subscribe('recommended-tests-update', () => {
+      loadData();
+    });
+
     return () => {
       unsubscribe();
+      unsubRecTests();
     };
   }, [patientId]);
 
@@ -527,6 +533,40 @@ export const PatientProfile: React.FC<PatientProfileProps> = ({ patientId, onNav
                 ))
               )}
             </div>
+          </div>
+
+          {/* Recommended Diagnostic Tests Tracker */}
+          <div className="glass-card p-6 sm:p-8 rounded-2xl space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                <Stethoscope className="h-5 w-5 text-teal-600" />
+                Recommended Diagnostic & Laboratory Tests ({recommendedTests.length})
+              </h3>
+            </div>
+
+            {recommendedTests.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No recommended laboratory or scan tests ordered for this patient yet.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {recommendedTests.map(rt => (
+                  <div key={rt.id} className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-xl text-xs flex justify-between items-center">
+                    <div>
+                      <span className="font-extrabold text-slate-800 block">{rt.testName}</span>
+                      <span className="text-[10px] text-slate-400 block font-mono">Ordered: {rt.date} &bull; Dr. {rt.recommendedByDoctor}</span>
+                    </div>
+                    {rt.status === 'Completed' ? (
+                      <span className="px-2 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-lg">
+                        ✓ Report Ready
+                      </span>
+                    ) : (
+                      <span className="px-2 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded-lg">
+                        ⏳ Pending Test
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>

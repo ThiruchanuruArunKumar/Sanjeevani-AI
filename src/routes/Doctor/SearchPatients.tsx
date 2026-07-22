@@ -38,24 +38,20 @@ export const SearchPatients: React.FC<SearchPatientsProps> = ({ onNavigate }) =>
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
 
-  // Load patients + subscribe to realtime updates
+  // Load patients assigned to THIS doctor ONLY under THIS hospital
   const loadPatients = () => {
     const { user } = DatabaseService.getActiveSession();
     if (!user) return;
+
+    const doctorPortalId = user.hospitalId || user.hospital_portal_id || user.id || '';
+    const doctorId = user.id;
     
-    if (!isMobile) {
-      // Desktop: Search all patients in database
-      setPatients(DatabaseService.getPatients());
-      return;
-    }
-    
-    // Mobile: Search only assigned patients
-    const appointments = DatabaseService.getAppointments().filter(a => a.doctorId === user.id);
-    const visits = DatabaseService.getVisits().filter(v => v.doctorId === user.id);
+    const appointments = DatabaseService.getAppointments(doctorPortalId).filter(a => a.doctorId === doctorId);
+    const visits = DatabaseService.getVisits().filter(v => v.doctorId === doctorId);
     const patientIds = new Set([...appointments.map(a => a.patientId), ...visits.map(v => v.patientId)]);
     
-    const allPatients = DatabaseService.getPatients();
-    setPatients(allPatients.filter(p => patientIds.has(p.id)));
+    const hospitalPatients = DatabaseService.getPatients(doctorPortalId);
+    setPatients(hospitalPatients.filter(p => patientIds.has(p.id)));
   };
 
   useEffect(() => {
@@ -132,23 +128,16 @@ export const SearchPatients: React.FC<SearchPatientsProps> = ({ onNavigate }) =>
       {/* Header */}
       <div className="border-b border-slate-100 pb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Search Patients</h1>
+          <h1 className="text-3xl font-black text-slate-800 tracking-tight">My Assigned Patients</h1>
           <p className="text-slate-500 text-sm mt-0.5 font-medium">
-            Find patients by name, Sanjeevani ID, blood group, or condition.
+            View patient medical records, consultation history, and laboratory test reports assigned to you by your Hospital Admin.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-xs text-slate-400 font-semibold">
-            <Activity className="h-4 w-4 text-primary animate-pulse" />
-            {patients.length} registered
+          <div className="flex items-center gap-2 text-xs font-bold bg-teal-50 text-teal-800 px-3 py-1.5 rounded-xl border border-teal-200">
+            <Activity className="h-4 w-4 text-teal-600 animate-pulse" />
+            {patients.length} Assigned Patients
           </div>
-          <button
-            onClick={() => setShowRegisterModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary hover:opacity-90 text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-premium"
-          >
-            <UserPlus className="h-4 w-4" />
-            + Register New Patient
-          </button>
         </div>
       </div>
 

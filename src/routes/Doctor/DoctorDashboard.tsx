@@ -14,7 +14,9 @@ import {
   AlertCircle,
   Stethoscope,
   Clock,
-  Lock
+  Lock,
+  Calendar,
+  Users
 } from 'lucide-react';
 
 import { useIsMobile } from '../../services/platform';
@@ -28,60 +30,74 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onNavigate }) 
   const isMobile = useIsMobile();
   const [patients, setPatients] = useState<PatientProfile[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [pendingAppointments, setPendingAppointments] = useState<Appointment[]>([]);
+  const [completedVisits, setCompletedVisits] = useState<any[]>([]);
+  const [reportsCount, setReportsCount] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'alerts' | 'all'>('alerts');
 
+  const doctorPortalId = user?.hospitalId || user?.hospital_portal_id || user?.id || '';
+  const doctorId = user?.id || '';
+
   const loadData = () => {
     if (!user) return;
-    
-    if (!isMobile) {
-      // Desktop: Original dashboard design - load all patients and feedbacks
-      setPatients(DatabaseService.getPatients());
-      setFeedbacks(DatabaseService.getFeedbacks());
-      setPendingAppointments([]);
-      return;
-    }
-    
-    // Mobile: Only fetch patients tied to this doctor (appointments or visits)
-    const allAppointments = DatabaseService.getAppointments();
-    const myAppointments = allAppointments.filter(a => a.doctorId === user.id);
-    setPendingAppointments(myAppointments.filter(a => a.status === 'forwarded'));
 
-    const visits = DatabaseService.getVisits().filter(v => v.doctorId === user.id);
-    const patientIds = new Set([...myAppointments.map(a => a.patientId), ...visits.map(v => v.patientId)]);
+    // 1. Fetch appointments assigned to THIS doctor in THIS hospital
+    const allHospitalApts = DatabaseService.getAppointments(doctorPortalId);
+    const myAppointments = allHospitalApts.filter(a => 
+      a.doctorId === doctorId &&
+      (!a.hospitalId || a.hospitalId.toUpperCase() === doctorPortalId.toUpperCase())
+    );
     
-    const allPatients = DatabaseService.getPatients();
-    const myPatients = allPatients.filter(p => patientIds.has(p.id));
-    
+    setAppointments(myAppointments);
+    setPendingAppointments(myAppointments.filter(a => a.status === 'forwarded' || a.status === 'pending'));
+
+    // 2. Fetch completed clinical visits by THIS doctor
+    const myVisits = DatabaseService.getVisits().filter(v => 
+      v.doctorId === doctorId && 
+      (!v.hospitalPortalId || v.hospitalPortalId.toUpperCase() === doctorPortalId.toUpperCase())
+    );
+    setCompletedVisits(myVisits);
+
+    // 3. Collect assigned patient IDs for this doctor
+    const assignedPatientIds = new Set([
+      ...myAppointments.map(a => a.patientId),
+      ...myVisits.map(v => v.patientId)
+    ]);
+
+    // 4. Fetch patients assigned to this doctor in this hospital ONLY
+    const hospitalPatients = DatabaseService.getPatients(doctorPortalId);
+    const myPatients = hospitalPatients.filter(p => assignedPatientIds.has(p.id));
     setPatients(myPatients);
-    
+
+    // 5. Fetch reports and feedbacks for assigned patients ONLY
+    const allReports = DatabaseService.getReports().filter(r => 
+      assignedPatientIds.has(r.patientId) && 
+      (!r.hospitalPortalId || r.hospitalPortalId.toUpperCase() === doctorPortalId.toUpperCase())
+    );
+    setReportsCount(allReports.length);
+
     const allFeedbacks = DatabaseService.getFeedbacks();
-    setFeedbacks(allFeedbacks.filter(f => patientIds.has(f.patientId)));
+    setFeedbacks(allFeedbacks.filter(f => assignedPatientIds.has(f.patientId)));
   };
 
   useEffect(() => {
     loadData();
 
     // Subscribe to realtime database updates
-    const unsubscribe = realtimeBroker.subscribe('patients-update', () => {
-      loadData();
-    });
-
-    const unsubscribeFeedbacks = realtimeBroker.subscribe('feedbacks-update', () => {
-      loadData();
-    });
-
-    const unsubscribeApts = realtimeBroker.subscribe('appointments-update', () => {
-      loadData();
-    });
+    const unsubscribe = realtimeBroker.subscribe('patients-update', loadData);
+    const unsubscribeFeedbacks = realtimeBroker.subscribe('feedbacks-update', loadData);
+    const unsubscribeApts = realtimeBroker.subscribe('appointments-update', loadData);
+    const unsubscribeVisits = realtimeBroker.subscribe('visits-update', loadData);
 
     return () => {
       unsubscribe();
       unsubscribeFeedbacks();
       unsubscribeApts();
+      unsubscribeVisits();
     };
-  }, [isMobile]);
+  }, [user?.id, doctorPortalId]);
 
   const filteredPatients = patients.filter(p => 
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -89,11 +105,15 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onNavigate }) 
     p.phone.includes(searchTerm)
   );
 
-  // Stats calculation
+  // Exact Stats calculation (Strict zero-defaults, NO sample fallbacks)
   const totalPatients = patients.length;
   const criticalPatients = patients.filter(p => p.vitals.systolicBP > 140 || p.vitals.oxygenSat < 95).length;
-  const averageBPM = Math.round(patients.reduce((sum, p) => sum + p.vitals.heartRate, 0) / (totalPatients || 1));
+  const averageBPM = totalPatients > 0 
+    ? Math.round(patients.reduce((sum, p) => sum + p.vitals.heartRate, 0) / totalPatients) 
+    : 0;
   const activeFeedbackAlerts = feedbacks.filter(f => !f.readByDoctor && (f.aiSeverity === 'critical' || f.aiSeverity === 'elevated')).length;
+  const pendingCount = pendingAppointments.length;
+  const completedCount = completedVisits.length;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -104,78 +124,89 @@ export const DoctorDashboard: React.FC<DoctorDashboardProps> = ({ onNavigate }) 
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">
             {isMobile ? 'Doctors Dashboard' : 'Clinical Dashboard'}
           </h1>
-          <p className="text-slate-500 text-sm mt-0.5">
-            Welcome, {user?.name || (isMobile ? 'Doctor' : 'Dr. Aarav Mehta')}. Your unified drug safety workspace is synced.
+          <p className="text-slate-500 text-sm mt-0.5 font-medium">
+            Welcome, <strong className="text-teal-800 font-extrabold">{user?.name ? (user.name.startsWith('Dr.') ? user.name : `Dr. ${user.name}`) : 'Doctor'}</strong>.
+            {doctorPortalId && (
+              <span className="ml-2 font-mono text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded border border-teal-200 font-bold">
+                {doctorPortalId}
+              </span>
+            )}
           </p>
         </div>
 
-        {/* Quick Shortcut Buttons */}
+        {/* Quick Action Buttons */}
         <div className="flex gap-2.5">
           <button 
-            onClick={() => onNavigate('doctor/prescription')} 
-            className="btn-medical text-xs font-bold shadow-premium"
+            onClick={() => onNavigate('doctor/appointments')} 
+            className="btn-medical text-xs font-bold shadow-premium flex items-center gap-1.5"
           >
-            <Pill className="h-4.5 w-4.5" />
-            New Prescription
+            <Calendar className="h-4 w-4" />
+            Today's Appointments
           </button>
           <button 
-            onClick={() => onNavigate('doctor/upload-report')} 
-            className="btn-medical-secondary text-xs font-bold"
+            onClick={() => onNavigate('doctor/patients')} 
+            className="btn-medical-secondary text-xs font-bold flex items-center gap-1.5"
           >
-            <Upload className="h-4.5 w-4.5 text-primary" />
-            Upload Report
+            <Users className="h-4 w-4 text-primary" />
+            My Patients
           </button>
         </div>
       </div>
 
-      {/* Top Clinical Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-teal-50 flex items-center justify-center text-primary">
-            <User className="h-6 w-6" />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Total Tracked Patients</span>
-            <span className="text-2xl font-black text-slate-800 block">{totalPatients}</span>
-          </div>
+      {/* Top Clinical Stats Row (Strict Real Counts) */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3.5">
+        <div className="glass-card p-4 rounded-2xl space-y-1 text-left border-teal-500/10">
+          <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider block">Today's Appointments</span>
+          <span className="text-xl sm:text-2xl font-black text-teal-700 block">{appointments.length}</span>
         </div>
-
-        <div className="glass-card p-6 rounded-2xl flex items-center gap-4 relative overflow-hidden">
-          <div className="h-12 w-12 rounded-xl bg-rose-50 flex items-center justify-center text-rose-500">
-            <ShieldAlert className="h-6 w-6" />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Critical Vitals Flags</span>
-            <span className="text-2xl font-black text-rose-600 block flex items-center gap-1.5">
-              {criticalPatients}
-              {criticalPatients > 0 && <span className="h-2 w-2 rounded-full bg-rose-500 animate-ping"></span>}
-            </span>
-          </div>
+        <div className="glass-card p-4 rounded-2xl space-y-1 text-left border-amber-500/10">
+          <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider block">Waiting Patients</span>
+          <span className="text-xl sm:text-2xl font-black text-amber-600 block">{pendingCount}</span>
         </div>
-
-        <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
-            <ShieldAlert className="h-6 w-6" />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">AI Safety Alerts</span>
-            <span className="text-2xl font-black text-amber-600 block flex items-center gap-1.5">
-              {activeFeedbackAlerts}
-              {activeFeedbackAlerts > 0 && <span className="h-2 w-2 rounded-full bg-amber-500 animate-ping"></span>}
-            </span>
-          </div>
+        <div className="glass-card p-4 rounded-2xl space-y-1 text-left border-rose-500/10">
+          <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider block">Pending Consultations</span>
+          <span className="text-xl sm:text-2xl font-black text-rose-600 block">{pendingCount}</span>
         </div>
-
-        <div className="glass-card p-6 rounded-2xl flex items-center gap-4">
-          <div className="h-12 w-12 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
-            <Activity className="h-6 w-6 animate-pulse" />
-          </div>
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Avg Heart Telemetry</span>
-            <span className="text-2xl font-black text-slate-800 block">{averageBPM} BPM</span>
-          </div>
+        <div className="glass-card p-4 rounded-2xl space-y-1 text-left border-emerald-500/10">
+          <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider block">Completed Consultations</span>
+          <span className="text-xl sm:text-2xl font-black text-emerald-600 block">{completedCount}</span>
+        </div>
+        <div className="glass-card p-4 rounded-2xl space-y-1 text-left border-blue-500/10">
+          <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider block">Medical Reports</span>
+          <span className="text-xl sm:text-2xl font-black text-blue-700 block">{reportsCount}</span>
+        </div>
+        <div className="glass-card p-4 rounded-2xl space-y-1 text-left border-slate-200/80">
+          <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider block">Assigned Patients</span>
+          <span className="text-xl sm:text-2xl font-black text-slate-800 block">{totalPatients}</span>
         </div>
       </div>
+
+      {/* 🟢 Professional Empty State for Newly Registered/Approved Doctors */}
+      {totalPatients === 0 && appointments.length === 0 && (
+        <div className="glass-card p-10 rounded-3xl border-slate-200/70 text-center space-y-4 shadow-sm bg-gradient-to-b from-white to-slate-50/50">
+          <div className="h-16 w-16 bg-teal-50 rounded-2xl border border-teal-100 flex items-center justify-center mx-auto text-teal-700">
+            <User className="h-8 w-8" />
+          </div>
+          <div className="max-w-md mx-auto space-y-2">
+            <h3 className="text-xl font-black text-slate-800">No appointments assigned yet</h3>
+            <p className="text-xs text-slate-500 font-medium leading-relaxed">
+              Welcome to Sanjeevani AI! Your doctor profile is active under Hospital Portal ID <strong className="font-mono text-teal-800">{doctorPortalId}</strong>.<br/>
+              Please wait for your Hospital Administrator to assign patients or appointments to your account.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2 pt-2 text-[11px] font-bold">
+            <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full border border-slate-200">
+              No patients assigned
+            </span>
+            <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full border border-slate-200">
+              No consultation history available
+            </span>
+            <span className="px-3 py-1 bg-teal-50 text-teal-700 rounded-full border border-teal-200 font-mono">
+              Portal ID: {doctorPortalId}
+            </span>
+          </div>
+        </div>
+      )}
 
 
 

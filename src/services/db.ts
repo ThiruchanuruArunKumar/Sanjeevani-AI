@@ -10,29 +10,59 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
+export interface LoginActivityLog {
+  id: string;
+  date: string;
+  time: string;
+  device: string;
+  browser: string;
+  ipAddress?: string;
+  isCurrent: boolean;
+}
+
 export interface HospitalAdminProfile {
   id: string;
+  hospitalPortalId: string; // e.g. SJV-HTPL-6444
   hospitalName: string;
   address: string;
   adminName: string;
   email: string;
+  phone?: string;
+  avatarUrl?: string;
+  hospitalLogoUrl?: string;
+  hospitalEmail?: string;
+  hospitalPhone?: string;
+  hospitalStatus?: 'Active' | 'Inactive';
+  emailVerified?: boolean;
+  phoneVerified?: boolean;
+  securityScore?: number;
+  lastLoginDate?: string;
+  lastLoginTime?: string;
+  lastLoginDevice?: string;
+  lastLoginBrowser?: string;
+  loginActivityLogs?: LoginActivityLog[];
 }
 
 export interface DoctorProfile {
   id: string;
   name: string;
   email: string;
+  medicalRegNumber?: string;
   specialty: string;
+  department?: string;
   clinicName: string;
   avatarUrl?: string;
-  hospitalId?: string; // Links to HospitalAdminProfile.id
+  hospitalId?: string; // Links to HospitalAdminProfile.hospitalPortalId / id
   approvalStatus?: 'pending' | 'accepted' | 'rejected';
+  registeredAt?: string;
 }
 
 export interface PatientProfile {
   id: string;
+  hospitalPortalId?: string;
   name: string;
   age: number;
+  gender?: string;
   phone: string;
   email: string;
   address?: string;
@@ -47,13 +77,21 @@ export interface PatientProfile {
     address?: string;
   };
   vitals: PatientVitals;
+  accountStatus?: 'pending_approval' | 'pending_activation' | 'activated' | 'rejected';
+  registrationType?: 'ONLINE' | 'WALK_IN';
+  passwordHash?: string;
+  otpCode?: string;
+  otpExpiresAt?: number;
+  registeredAt?: string;
 }
 
 export interface Appointment {
   id: string;
   patientId: string;
-  hospitalId: string;
+  hospitalId: string; // Links to HospitalAdminProfile.hospitalPortalId / id
   doctorId?: string;
+  department?: string;
+  tokenNumber?: string;
   timeRange: string;
   reason: string;
   status: 'pending' | 'forwarded' | 'completed' | 'rejected';
@@ -80,8 +118,39 @@ export interface ConsultationFeedback {
   date: string;
 }
 
+export interface RecommendedTestRecord {
+  id: string;
+  patientId: string;
+  hospitalPortalId: string;
+  visitId?: string;
+  testName: string;
+  category: string;
+  status: 'Pending' | 'Completed';
+  reportId?: string;
+  recommendedByDoctor: string;
+  date: string;
+}
+
+export interface ConsultationNote {
+  id: string;
+  hospitalPortalId: string;
+  patientId: string;
+  patientName: string;
+  doctorId: string;
+  doctorName: string;
+  diagnosis: string;
+  prescribedMedicines: Drug[];
+  recommendedTests: string[];
+  recommendedTestRecords?: RecommendedTestRecord[];
+  followUpAdvice: string;
+  status: 'pending_explanation' | 'explained';
+  createdAt: string;
+  explainedAt?: string;
+}
+
 export interface ClinicalVisit {
   id: string;
+  hospitalPortalId?: string;
   patientId: string;
   doctorId: string;
   doctorName: string;
@@ -91,15 +160,18 @@ export interface ClinicalVisit {
   diagnosis: string;
   notes: string;
   prescriptions?: Prescription;
+  recommendedTests?: string[];
+  recommendedTestRecords?: RecommendedTestRecord[];
   feedbackId?: string;
 }
 
 export interface UploadedReport {
   id: string;
   patientId: string;
+  hospitalPortalId?: string;
   title: string;
   date: string;
-  category: 'Lab Report' | 'Cardiology' | 'Radiology' | 'General';
+  category: 'Lab Report' | 'Cardiology' | 'Radiology' | 'General' | 'X-Ray' | 'MRI Scan' | 'CT Scan' | 'Blood Report';
   fileUrl: string;
   parsedSummary?: string;
   notes?: string;
@@ -181,13 +253,18 @@ const SEED_APPOINTMENTS: Appointment[] = [];
 const SEED_CONSULTATION_FEEDBACKS: ConsultationFeedback[] = [];
 
 // ----------------------------------------------------
-// Patient ID Generator — SJV-PAT-XXXXXX
+// Generators — Portal ID & Patient ID
 // ----------------------------------------------------
+export function generateHospitalPortalId(): string {
+  const code = Math.floor(1000 + Math.random() * 9000);
+  return `SJV-HTPL-${code}`;
+}
+
 export function generatePatientId(): string {
-  const current = parseInt(localStorage.getItem('sj_patient_counter') || '2', 10);
-  const next = current + 1;
+  const current = parseInt(localStorage.getItem('sj_patient_counter') || '100000', 10);
+  const next = current < 100000 ? 100001 : current + 1;
   localStorage.setItem('sj_patient_counter', String(next));
-  return `SJV-PAT-${String(next).padStart(6, '0')}`;
+  return `SJV-PAT-${next}`;
 }
 
 // Realtime Event system
@@ -223,52 +300,52 @@ export class DatabaseService {
     this.isInitialized = true;
 
     // Force clear old demo data from browser cache for production launch
-    if (localStorage.getItem('sj_prod_launch_v2') !== 'true') {
+    if (localStorage.getItem('sj_prod_launch_v4') !== 'true') {
       localStorage.clear();
-      localStorage.setItem('sj_prod_launch_v2', 'true');
+      localStorage.setItem('sj_prod_launch_v4', 'true');
     }
 
     if (!localStorage.getItem('sj_doctor')) {
-      localStorage.setItem('sj_doctor', JSON.stringify(SEED_DOCTOR));
+      localStorage.setItem('sj_doctor', 'null');
     }
     if (!localStorage.getItem('sj_doctors_list')) {
-      localStorage.setItem('sj_doctors_list', JSON.stringify([SEED_DOCTOR]));
+      localStorage.setItem('sj_doctors_list', '[]');
     }
     const patients = localStorage.getItem('sj_patients');
-    if (!patients || patients === '[]') {
-      localStorage.setItem('sj_patients', JSON.stringify(SEED_PATIENTS));
+    if (!patients) {
+      localStorage.setItem('sj_patients', '[]');
     }
     const visits = localStorage.getItem('sj_visits');
-    if (!visits || visits === '[]') {
-      localStorage.setItem('sj_visits', JSON.stringify(SEED_VISITS));
+    if (!visits) {
+      localStorage.setItem('sj_visits', '[]');
     }
     const reports = localStorage.getItem('sj_reports');
-    if (!reports || reports === '[]') {
-      localStorage.setItem('sj_reports', JSON.stringify(SEED_REPORTS));
+    if (!reports) {
+      localStorage.setItem('sj_reports', '[]');
     }
     if (!localStorage.getItem('sj_alerts')) {
-      localStorage.setItem('sj_alerts', JSON.stringify(SEED_ALERTS));
+      localStorage.setItem('sj_alerts', '[]');
     }
     if (!localStorage.getItem('sj_feedbacks')) {
-      localStorage.setItem('sj_feedbacks', JSON.stringify(SEED_FEEDBACKS));
+      localStorage.setItem('sj_feedbacks', '[]');
     }
     if (!localStorage.getItem('sj_predictions')) {
-      localStorage.setItem('sj_predictions', JSON.stringify(SEED_PREDICTIONS));
+      localStorage.setItem('sj_predictions', '[]');
     }
     if (!localStorage.getItem('sj_medication_logs')) {
-      localStorage.setItem('sj_medication_logs', JSON.stringify(SEED_MEDICATION_LOGS));
+      localStorage.setItem('sj_medication_logs', '[]');
     }
     if (!localStorage.getItem('sj_patient_counter')) {
-      localStorage.setItem('sj_patient_counter', '2');
+      localStorage.setItem('sj_patient_counter', '100');
     }
     if (!localStorage.getItem('sj_admins')) {
-      localStorage.setItem('sj_admins', JSON.stringify(SEED_ADMINS));
+      localStorage.setItem('sj_admins', '[]');
     }
     if (!localStorage.getItem('sj_appointments')) {
-      localStorage.setItem('sj_appointments', JSON.stringify(SEED_APPOINTMENTS));
+      localStorage.setItem('sj_appointments', '[]');
     }
-    if (!localStorage.getItem('sj_consultation_feedbacks')) {
-      localStorage.setItem('sj_consultation_feedbacks', JSON.stringify(SEED_CONSULTATION_FEEDBACKS));
+    if (!localStorage.getItem('sj_consultation_notes')) {
+      localStorage.setItem('sj_consultation_notes', '[]');
     }
 
     // Launch background asynchronous sync from Supabase
@@ -321,10 +398,20 @@ export class DatabaseService {
       if (adminsList && adminsList.length > 0) {
         const mappedAdmins = adminsList.map((a: any) => ({
           id: a.id,
-          hospitalName: a.hospital_name,
-          address: a.address,
-          adminName: a.admin_name,
-          email: a.email
+          hospitalPortalId: a.hospital_portal_id || '',
+          hospitalName: a.hospital_name || '',
+          address: a.address || '',
+          adminName: a.admin_name || '',
+          email: a.email || '',
+          phone: a.phone || '',
+          avatarUrl: a.avatar_url || '',
+          hospitalLogoUrl: a.hospital_logo_url || '',
+          hospitalEmail: a.hospital_email || '',
+          hospitalPhone: a.hospital_phone || '',
+          hospitalStatus: a.hospital_status || 'Active',
+          emailVerified: a.email_verified || false,
+          phoneVerified: a.phone_verified || false,
+          securityScore: a.security_score || 100
         }));
         localStorage.setItem('sj_admins', JSON.stringify(mappedAdmins));
       }
@@ -368,16 +455,21 @@ export class DatabaseService {
         const localPats = JSON.parse(localStorage.getItem('sj_patients') || '[]');
         const mappedPats = pats.map(p => ({
           id: p.id,
+          hospitalPortalId: p.hospital_portal_id,
           name: p.name,
           age: p.age,
           phone: p.phone,
           email: p.email,
-          bloodGroup: p.blood_group,
+          address: p.address,
+          bloodGroup: p.blood_group || 'Unknown',
           allergies: p.allergies || [],
           chronicConditions: p.chronic_conditions || [],
           activeMedications: p.active_medications || [],
           emergencyContact: p.emergency_contact || { name: '', phone: '' },
-          vitals: p.vitals || {}
+          vitals: p.vitals || {},
+          accountStatus: p.account_status || 'pending_activation',
+          registrationType: p.registration_type || 'WALK_IN',
+          passwordHash: p.password_hash || ''
         }));
 
         // Merge: keep local-only patients that haven't synced yet
@@ -394,6 +486,7 @@ export class DatabaseService {
       if (visits && visits.length > 0) {
         const mappedVisits = visits.map(v => ({
           id: v.id,
+          hospitalPortalId: v.hospital_portal_id,
           patientId: v.patient_id,
           doctorId: v.doctor_id,
           doctorName: v.doctor_name,
@@ -410,16 +503,32 @@ export class DatabaseService {
       // Sync appointments from Supabase (ignore error if table doesn't exist yet)
       if (!aptsError && apts && apts.length > 0) {
         const localApts: Appointment[] = (JSON.parse(localStorage.getItem('sj_appointments') || '[]') as any[]).filter(Boolean);
-        const mappedApts: Appointment[] = apts.filter(Boolean).map((a: any) => ({
-          id: a.id,
-          patientId: a.patient_id,
-          hospitalId: a.hospital_id,
-          doctorId: a.doctor_id,
-          timeRange: a.time_range,
-          reason: a.reason,
-          status: a.status,
-          createdAt: a.created_at
-        }));
+        const mappedApts: Appointment[] = apts.filter(Boolean).map((a: any) => {
+          let reasonText = a.reason || '';
+          let dept = '';
+          let tkn = '';
+          try {
+            if (a.reason && a.reason.trim().startsWith('{')) {
+              const parsed = JSON.parse(a.reason);
+              reasonText = parsed.text || '';
+              dept = parsed.department || '';
+              tkn = parsed.tokenNumber || '';
+            }
+          } catch (e) {}
+
+          return {
+            id: a.id,
+            patientId: a.patient_id,
+            hospitalId: a.hospital_id,
+            doctorId: a.doctor_id,
+            department: dept,
+            tokenNumber: tkn,
+            timeRange: a.time_range,
+            reason: reasonText,
+            status: a.status,
+            createdAt: a.created_at
+          };
+        });
         // Merge: remote wins for existing, keep local-only records
         const merged = [...mappedApts];
         localApts.forEach((la: Appointment) => {
@@ -523,6 +632,19 @@ export class DatabaseService {
   static async loginDoctor(email: string, password: string): Promise<DoctorProfile | null> {
     this.init();
     
+    // Check local doctors list first for fast approval validation
+    const localDoctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    const localDoc = localDoctors.find((d: any) => d && d.email && d.email.toLowerCase() === email.toLowerCase());
+
+    if (localDoc) {
+      if (localDoc.approvalStatus === 'pending') {
+        throw new Error('Your account is pending Hospital Admin approval.');
+      }
+      if (localDoc.approvalStatus === 'rejected') {
+        throw new Error('Your registration was rejected by the Hospital Admin.');
+      }
+    }
+
     // 1. Authenticate with Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
       email,
@@ -548,20 +670,34 @@ export class DatabaseService {
       console.error('Error fetching doctor profile from DB:', dbError);
     }
 
-    if (!doc) {
+    if (!doc && !localDoc) {
       await supabase.auth.signOut();
       throw new Error('Access denied. This account is not registered as a Doctor.');
     }
 
+    const currentDoc = doc || localDoc;
+
+    if (currentDoc.approval_status === 'pending' || currentDoc.approvalStatus === 'pending') {
+      await supabase.auth.signOut();
+      throw new Error('Your account is pending Hospital Admin approval.');
+    }
+
+    if (currentDoc.approval_status === 'rejected' || currentDoc.approvalStatus === 'rejected') {
+      await supabase.auth.signOut();
+      throw new Error('Your registration was rejected by the Hospital Admin.');
+    }
+
     const profile: DoctorProfile = {
-      id: doc.id,
-      name: doc.name,
-      email: doc.email,
-      specialty: doc.specialty,
-      clinicName: doc.clinic_name,
-      avatarUrl: doc.avatar_url,
-      hospitalId: doc.hospital_id,
-      approvalStatus: doc.approval_status
+      id: currentDoc.id,
+      name: currentDoc.name,
+      email: currentDoc.email,
+      medicalRegNumber: currentDoc.medical_reg_number || currentDoc.medicalRegNumber,
+      specialty: currentDoc.specialty,
+      department: currentDoc.department,
+      clinicName: currentDoc.clinic_name || currentDoc.clinicName,
+      avatarUrl: currentDoc.avatar_url || currentDoc.avatarUrl,
+      hospitalId: currentDoc.hospital_id || currentDoc.hospitalId,
+      approvalStatus: currentDoc.approval_status || currentDoc.approvalStatus || 'accepted'
     };
 
     // Cache the authenticated doctor
@@ -582,43 +718,62 @@ export class DatabaseService {
     return profile;
   }
 
-  static async registerDoctor(name: string, email: string, specialty: string, clinic: string, password?: string, hospitalId?: string): Promise<DoctorProfile> {
+  static async registerDoctor(
+    name: string, 
+    email: string, 
+    specialty: string, 
+    clinic: string, 
+    password?: string, 
+    hospitalId?: string,
+    medicalRegNumber?: string,
+    department?: string
+  ): Promise<DoctorProfile> {
     this.init();
 
     if (!password) {
       throw new Error('Password is required for registration.');
     }
 
-    // 1. Register with Supabase Auth
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password
-    });
-
-    if (authError) {
-      throw new Error(authError.message);
+    if (!hospitalId || !hospitalId.trim()) {
+      throw new Error('Hospital Portal ID is required.');
     }
 
-    if (!authData.user) {
-      throw new Error('Clinician registration failed in Supabase Auth');
+    // 1. Validate Hospital Portal ID against registered Hospital Admins
+    const admins = this.getAdmins();
+    const validAdmin = admins.find(a => a.hospitalPortalId && a.hospitalPortalId.toUpperCase() === hospitalId.trim().toUpperCase());
+
+    if (!validAdmin) {
+      throw new Error('Invalid Hospital Portal ID. Please verify the Portal ID with your Hospital Administrator.');
     }
 
-    const docId = authData.user.id;
+    // 2. Register with Supabase Auth
+    let docId = `doc_${Date.now()}`;
+    try {
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password
+      });
+
+      if (authData?.user) {
+        docId = authData.user.id;
+      }
+    } catch (e) {
+      // Continue offline if auth signup fails
+    }
 
     const newDoc: DoctorProfile = {
       id: docId,
       name,
       email,
+      medicalRegNumber,
       specialty,
-      clinicName: clinic,
-      hospitalId,
-      approvalStatus: hospitalId ? 'pending' : undefined,
-      avatarUrl: ''
+      department: department || specialty,
+      clinicName: clinic || validAdmin.hospitalName,
+      hospitalId: validAdmin.hospitalPortalId,
+      approvalStatus: 'pending',
+      avatarUrl: '',
+      registeredAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     };
-
-    localStorage.setItem('sj_doctor', JSON.stringify(newDoc));
-    localStorage.setItem('sj_active_role', 'doctor');
-    localStorage.setItem('sj_active_user', JSON.stringify(newDoc));
 
     // Update sj_doctors_list
     const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
@@ -630,12 +785,14 @@ export class DatabaseService {
     }
     localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
 
-    // 2. Persist to public.doctors table
+    // 3. Persist to public.doctors table
     const { error: dbError } = await supabase.from('doctors').upsert({
       id: newDoc.id,
       name: newDoc.name,
       email: newDoc.email,
       specialty: newDoc.specialty,
+      department: newDoc.department,
+      medical_reg_number: newDoc.medicalRegNumber,
       clinic_name: newDoc.clinicName,
       avatar_url: newDoc.avatarUrl,
       hospital_id: newDoc.hospitalId,
@@ -646,7 +803,46 @@ export class DatabaseService {
       console.error('Supabase doctor register table insert failed:', dbError);
     }
 
+    // Notify real-time broker for Hospital Admin Approval UI
+    realtimeBroker.publish('doctors-update');
+
     return newDoc;
+  }
+
+  static async approveDoctor(doctorId: string) {
+    this.init();
+    const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    const idx = doctors.findIndex((d: any) => d && d.id === doctorId);
+    if (idx !== -1) {
+      doctors[idx].approvalStatus = 'accepted';
+      localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+    }
+
+    const { error } = await supabase
+      .from('doctors')
+      .update({ approval_status: 'accepted' })
+      .eq('id', doctorId);
+
+    if (error) console.error('Supabase approve doctor failed:', error);
+    realtimeBroker.publish('doctors-update');
+  }
+
+  static async rejectDoctor(doctorId: string) {
+    this.init();
+    const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    const idx = doctors.findIndex((d: any) => d && d.id === doctorId);
+    if (idx !== -1) {
+      doctors[idx].approvalStatus = 'rejected';
+      localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+    }
+
+    const { error } = await supabase
+      .from('doctors')
+      .update({ approval_status: 'rejected' })
+      .eq('id', doctorId);
+
+    if (error) console.error('Supabase reject doctor failed:', error);
+    realtimeBroker.publish('doctors-update');
   }
 
   static updateDoctorProfile(doc: DoctorProfile) {
@@ -680,29 +876,497 @@ export class DatabaseService {
   }
 
   // ----------------------------------------------------
-  // Patient Auth Actions
+  // Patient Auth & Account Activation Actions
   // ----------------------------------------------------
-  static requestPatientOTP(phone: string): { success: boolean; otp: string } {
+  static async loginPatient(identifier: string, password: string): Promise<PatientProfile> {
     this.init();
-    const patients = this.getPatients();
-    const patient = patients.find(p => p.phone === phone);
-    if (patient) {
-      const mockOTP = '4582';
-      return { success: true, otp: mockOTP };
+    try {
+      await this.syncFromSupabase();
+    } catch (e) {
+      console.warn('Failed to sync from Supabase during login, fallback to local storage:', e);
     }
-    return { success: false, otp: '' };
+    const cleanId = identifier.trim().toLowerCase();
+    const patients = this.getPatients();
+    
+    const p = patients.find(patient => 
+      patient.id.toLowerCase() === cleanId ||
+      (patient.email && patient.email.toLowerCase() === cleanId) ||
+      (patient.phone && patient.phone === cleanId)
+    );
+
+    if (!p) {
+      throw new Error('No patient account found for the entered Patient ID, Email, or Phone Number.');
+    }
+
+    if (p.accountStatus === 'pending_approval') {
+      throw new Error('Your registration request is pending Hospital Admin approval. You will receive your Patient ID once approved.');
+    }
+
+    if (p.accountStatus === 'pending_activation') {
+      throw new Error('Your account requires activation. Click "Activate Existing Account" to verify OTP and create your password.');
+    }
+
+    if (p.accountStatus === 'rejected') {
+      throw new Error('Your registration request was rejected by the Hospital Admin.');
+    }
+
+    // Verify Password
+    if (p.passwordHash && p.passwordHash !== password) {
+      throw new Error('Invalid Password. Please check your credentials or click "Forgot Password".');
+    }
+
+    localStorage.setItem('sj_active_role', 'patient');
+    localStorage.setItem('sj_active_user', JSON.stringify(p));
+    return p;
   }
 
-  static loginPatient(phone: string, password: string): PatientProfile | null {
+  // Option 1: Activate Existing Account (Send OTP)
+  static requestPatientActivationOTP(patientId: string, identifier: string): { success: boolean; otp: string; patient: PatientProfile } {
+    this.init();
+    const cleanId = patientId.trim().toUpperCase();
+    const cleanIdent = identifier.trim().toLowerCase();
+    const patients = this.getPatients();
+
+    const p = patients.find(patient => 
+      patient.id.toUpperCase() === cleanId &&
+      ((patient.email && patient.email.toLowerCase() === cleanIdent) || (patient.phone && patient.phone === cleanIdent))
+    );
+
+    if (!p) {
+      throw new Error('No matching hospital record found for Patient ID: ' + patientId + ' and Email/Mobile: ' + identifier);
+    }
+
+    if (p.accountStatus === 'pending_approval') {
+      throw new Error('Your registration request is pending Hospital Admin approval.');
+    }
+
+    if (p.accountStatus === 'rejected') {
+      throw new Error('Your registration request was rejected by the Hospital Admin.');
+    }
+
+    // Generate 6-Digit OTP
+    const generatedOTP = '458219';
+    p.otpCode = generatedOTP;
+    p.otpExpiresAt = Date.now() + 10 * 60 * 1000; // 10 mins
+
+    const idx = patients.findIndex(x => x.id === p.id);
+    if (idx !== -1) {
+      patients[idx] = p;
+      localStorage.setItem('sj_patients', JSON.stringify(patients));
+    }
+
+    return { success: true, otp: generatedOTP, patient: p };
+  }
+
+  // Option 1: Complete Activation by Patient-Set Password
+  static activatePatientPassword(patientId: string, otp: string, password: string): PatientProfile {
+    this.init();
+    const cleanId = patientId.trim().toUpperCase();
+    const patients = this.getPatients();
+    const idx = patients.findIndex(p => p.id.toUpperCase() === cleanId);
+
+    if (idx === -1) {
+      throw new Error('Patient record not found.');
+    }
+
+    const p = patients[idx];
+
+    if (p.otpCode && p.otpCode !== otp.trim()) {
+      throw new Error('Invalid OTP code. Please enter the 6-digit verification code.');
+    }
+
+    p.passwordHash = password;
+    p.accountStatus = 'activated';
+    p.otpCode = undefined;
+    p.otpExpiresAt = undefined;
+
+    patients[idx] = p;
+    localStorage.setItem('sj_patients', JSON.stringify(patients));
+
+    // Supabase update
+    supabase.from('patients').upsert({
+      id: p.id,
+      name: p.name,
+      age: p.age,
+      phone: p.phone,
+      email: p.email,
+      emergency_contact: {
+        name: p.emergencyContact?.name || '',
+        phone: p.emergencyContact?.phone || '',
+        hospitalPortalId: p.hospitalPortalId || '',
+        accountStatus: 'activated',
+        registrationType: p.registrationType || 'WALK_IN',
+        passwordHash: p.passwordHash || '',
+        address: p.address || ''
+      }
+    }).then(({ error }) => {
+      if (error) console.error('Supabase patient activation update failed:', error);
+    });
+
+    realtimeBroker.publish('patients-update');
+    return p;
+  }
+
+  // Activate Existing Account (Hospital Admin Registered Patient)
+  static async activateHospitalPatientAccount(patientId: string, email: string, password: string): Promise<PatientProfile> {
+    this.init();
+    try {
+      await this.syncFromSupabase();
+    } catch (e) {
+      console.warn('Failed to sync from Supabase during activation, fallback to local storage:', e);
+    }
+    const cleanId = patientId.trim().toUpperCase();
+    const cleanEmail = email.trim().toLowerCase();
+    const patients = this.getPatients();
+
+    const idx = patients.findIndex(p => 
+      p.id.toUpperCase() === cleanId &&
+      p.email && p.email.toLowerCase() === cleanEmail
+    );
+
+    if (idx === -1) {
+      throw new Error('No matching hospital record found for Patient ID: ' + patientId + ' and Registered Email: ' + email + '. Please verify your details or contact your Hospital Administrator.');
+    }
+
+    const p = patients[idx];
+    p.passwordHash = password;
+    p.accountStatus = 'activated';
+
+    patients[idx] = p;
+    localStorage.setItem('sj_patients', JSON.stringify(patients));
+
+    supabase.from('patients').upsert({
+      id: p.id,
+      name: p.name,
+      age: p.age,
+      phone: p.phone,
+      email: p.email,
+      emergency_contact: {
+        name: p.emergencyContact?.name || '',
+        phone: p.emergencyContact?.phone || '',
+        hospitalPortalId: p.hospitalPortalId || '',
+        accountStatus: 'activated',
+        registrationType: p.registrationType || 'WALK_IN',
+        passwordHash: p.passwordHash || '',
+        address: p.address || ''
+      }
+    }).then(({ error }) => {
+      if (error) console.error('Supabase patient activation failed:', error);
+    });
+
+    realtimeBroker.publish('patients-update');
+    return p;
+  }
+
+  // Instant Online Patient Registration & Active Account Creation
+  static registerOnlinePatient(params: {
+    name: string;
+    age: number;
+    gender: string;
+    phone: string;
+    email: string;
+    password: string;
+    address: string;
+    emergencyContactName: string;
+    emergencyContactPhone: string;
+  }): PatientProfile {
+    this.init();
+
+    const patients = this.getPatients();
+
+    // Check if account already exists with Email Address
+    const existing = patients.find(p => 
+      params.email && p.email && p.email.trim().toLowerCase() === params.email.trim().toLowerCase()
+    );
+
+    if (existing) {
+      throw new Error('An account already exists with this Email Address.');
+    }
+
+    // Automatically generate unique permanent Patient ID (e.g. SJV-PAT-100001)
+    const patientId = generatePatientId();
+
+    const newPatient: PatientProfile = {
+      id: patientId, // Permanent Patient ID
+      hospitalPortalId: '',
+      name: params.name,
+      age: params.age,
+      gender: params.gender,
+      address: params.address,
+      phone: params.phone,
+      email: params.email,
+      bloodGroup: 'Unknown',
+      allergies: [],
+      chronicConditions: [],
+      activeMedications: [],
+      emergencyContact: {
+        name: params.emergencyContactName,
+        phone: params.emergencyContactPhone
+      },
+      vitals: {
+        systolicBP: 120,
+        diastolicBP: 80,
+        heartRate: 72,
+        temperature: 98.6,
+        oxygenSat: 98,
+        bloodGlucose: 100,
+        weight: 70,
+        pulseRate: 72
+      },
+      accountStatus: 'activated', // Instant Active Account!
+      registrationType: 'ONLINE',
+      passwordHash: params.password,
+      registeredAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+
+    patients.push(newPatient);
+    localStorage.setItem('sj_patients', JSON.stringify(patients));
+
+    // Save Active Session for auto-login
+    localStorage.setItem('sj_active_role', 'patient');
+    localStorage.setItem('sj_active_user', JSON.stringify(newPatient));
+
+    // Supabase Insert (Map custom metadata to emergency_contact field to fit schema)
+    supabase.from('patients').upsert({
+      id: newPatient.id,
+      name: newPatient.name,
+      age: newPatient.age,
+      phone: newPatient.phone,
+      email: newPatient.email,
+      emergency_contact: {
+        name: params.emergencyContactName,
+        phone: params.emergencyContactPhone,
+        hospitalPortalId: '',
+        accountStatus: 'activated',
+        registrationType: 'ONLINE',
+        passwordHash: newPatient.passwordHash,
+        address: params.address || ''
+      }
+    }).then(({ error }) => {
+      if (error) console.error('Supabase online patient registration failed:', error);
+    });
+
+    // Notify Hospital Admin (Informational Notification)
+    const adminAlerts = JSON.parse(localStorage.getItem('sj_admin_notifications') || '[]');
+    adminAlerts.unshift({
+      id: `notif_pat_${Date.now()}`,
+      title: 'New Patient Registered',
+      patientId: newPatient.id,
+      patientName: newPatient.name,
+      registrationDate: newPatient.registeredAt,
+      registrationType: 'ONLINE',
+      status: 'Active',
+      message: `Patient ID: ${newPatient.id} | Name: ${newPatient.name} registered online. Registration Type = ONLINE.`,
+      createdAt: new Date().toISOString()
+    });
+    localStorage.setItem('sj_admin_notifications', JSON.stringify(adminAlerts));
+
+    realtimeBroker.publish('patients-update');
+    realtimeBroker.publish('admin-notifications-update');
+    return newPatient;
+  }
+
+  // Register Walk-in Patient by Hospital Admin
+  static registerWalkInPatient(params: {
+    hospitalPortalId: string;
+    name: string;
+    age: number;
+    gender: string;
+    phone: string;
+    email: string;
+    address: string;
+    emergencyContactName: string;
+    emergencyContactPhone: string;
+  }): PatientProfile {
+    this.init();
+    const patientId = generatePatientId();
+
+    const newPatient: PatientProfile = {
+      id: patientId,
+      hospitalPortalId: params.hospitalPortalId,
+      name: params.name,
+      age: params.age,
+      gender: params.gender,
+      phone: params.phone,
+      email: params.email,
+      address: params.address,
+      bloodGroup: 'Unknown',
+      allergies: [],
+      chronicConditions: [],
+      activeMedications: [],
+      emergencyContact: {
+        name: params.emergencyContactName,
+        phone: params.emergencyContactPhone
+      },
+      vitals: {
+        systolicBP: 120,
+        diastolicBP: 80,
+        heartRate: 72,
+        temperature: 98.6,
+        oxygenSat: 98,
+        bloodGlucose: 100,
+        weight: 70,
+        pulseRate: 72
+      },
+      accountStatus: 'pending_activation',
+      registrationType: 'WALK_IN',
+      registeredAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    };
+
+    const patients = this.getPatients();
+    patients.push(newPatient);
+    localStorage.setItem('sj_patients', JSON.stringify(patients));
+
+    supabase.from('patients').upsert({
+      id: newPatient.id,
+      name: newPatient.name,
+      age: newPatient.age,
+      phone: newPatient.phone,
+      email: newPatient.email,
+      emergency_contact: {
+        name: params.emergencyContactName,
+        phone: params.emergencyContactPhone,
+        hospitalPortalId: params.hospitalPortalId,
+        accountStatus: 'pending_activation',
+        registrationType: 'WALK_IN',
+        passwordHash: '',
+        address: params.address || ''
+      }
+    }).then(({ error }) => {
+      if (error) console.error('Supabase walk-in patient insert failed:', error);
+    });
+
+    realtimeBroker.publish('patients-update');
+    return newPatient;
+  }
+
+  // Admin Approval of Online Patient (Patient ID is permanent and immutable!)
+  static approveOnlinePatient(patientId: string): PatientProfile {
     this.init();
     const patients = this.getPatients();
-    const patient = patients.find(p => p.phone === phone);
-    if (patient && password.length > 0) {
-      localStorage.setItem('sj_active_role', 'patient');
-      localStorage.setItem('sj_active_user', JSON.stringify(patient));
-      return patient;
+    const idx = patients.findIndex(p => p.id === patientId);
+
+    if (idx === -1) {
+      throw new Error('Patient registration request not found.');
     }
-    return null;
+
+    const p = patients[idx];
+    p.accountStatus = 'pending_activation';
+
+    patients[idx] = p;
+    localStorage.setItem('sj_patients', JSON.stringify(patients));
+
+    supabase.from('patients').upsert({
+      id: p.id,
+      hospital_portal_id: p.hospitalPortalId,
+      name: p.name,
+      age: p.age,
+      phone: p.phone,
+      email: p.email,
+      account_status: 'pending_activation'
+    }).then(({ error }) => {
+      if (error) console.error('Supabase approve patient failed:', error);
+    });
+
+    realtimeBroker.publish('patients-update');
+    return p;
+  }
+
+  static rejectOnlinePatient(patientId: string) {
+    this.init();
+    const patients = this.getPatients();
+    const idx = patients.findIndex(p => p.id === patientId);
+
+    if (idx !== -1) {
+      patients[idx].accountStatus = 'rejected';
+      localStorage.setItem('sj_patients', JSON.stringify(patients));
+
+      supabase.from('patients').update({ account_status: 'rejected' }).eq('id', patientId).then(({ error }) => {
+        if (error) console.error('Supabase reject patient failed:', error);
+      });
+
+      realtimeBroker.publish('patients-update');
+    }
+  }
+
+  // Forgot Password Flow
+  static requestPatientResetOTP(identifier: string): { success: boolean; otp: string; patient: PatientProfile } {
+    this.init();
+    const cleanIdent = identifier.trim().toLowerCase();
+    const patients = this.getPatients();
+
+    const p = patients.find(patient => 
+      patient.id.toLowerCase() === cleanIdent ||
+      (patient.email && patient.email.toLowerCase() === cleanIdent) ||
+      (patient.phone && patient.phone === cleanIdent)
+    );
+
+    if (!p) {
+      throw new Error('No patient record found matching entered Patient ID or Email.');
+    }
+
+    const generatedOTP = '458219';
+    p.otpCode = generatedOTP;
+    p.otpExpiresAt = Date.now() + 10 * 60 * 1000;
+
+    const idx = patients.findIndex(x => x.id === p.id);
+    if (idx !== -1) {
+      patients[idx] = p;
+      localStorage.setItem('sj_patients', JSON.stringify(patients));
+    }
+
+    return { success: true, otp: generatedOTP, patient: p };
+  }
+
+  static resetPatientPassword(identifier: string, otp: string, newPassword: string): PatientProfile {
+    this.init();
+    const cleanIdent = identifier.trim().toLowerCase();
+    const patients = this.getPatients();
+    const idx = patients.findIndex(patient => 
+      patient.id.toLowerCase() === cleanIdent ||
+      (patient.email && patient.email.toLowerCase() === cleanIdent) ||
+      (patient.phone && patient.phone === cleanIdent)
+    );
+
+    if (idx === -1) {
+      throw new Error('Patient record not found.');
+    }
+
+    const p = patients[idx];
+
+    if (p.otpCode && p.otpCode !== otp.trim()) {
+      throw new Error('Invalid OTP verification code.');
+    }
+
+    p.passwordHash = newPassword;
+    p.accountStatus = 'activated';
+    p.otpCode = undefined;
+    p.otpExpiresAt = undefined;
+
+    patients[idx] = p;
+    localStorage.setItem('sj_patients', JSON.stringify(patients));
+
+    supabase.from('patients').upsert({
+      id: p.id,
+      name: p.name,
+      age: p.age,
+      phone: p.phone,
+      email: p.email,
+      emergency_contact: {
+        name: p.emergencyContact?.name || '',
+        phone: p.emergencyContact?.phone || '',
+        hospitalPortalId: p.hospitalPortalId || '',
+        accountStatus: 'activated',
+        registrationType: p.registrationType || 'WALK_IN',
+        passwordHash: p.passwordHash || '',
+        address: p.address || ''
+      }
+    }).then(({ error }) => {
+      if (error) console.error('Supabase password reset failed:', error);
+    });
+
+    realtimeBroker.publish('patients-update');
+    return p;
   }
 
   static async loginPatientWithGoogle() {
@@ -838,10 +1502,10 @@ export class DatabaseService {
     admins = admins.filter(a => a !== null && a !== undefined);
     let migrated = false;
 
-    // Auto-migrate old UUIDs to new format seamlessly
     admins.forEach((admin) => {
-      if (admin.id && !admin.id.startsWith('SJV-HTPL-')) {
-        admin.id = `SJV-HTPL-${Math.floor(1000 + Math.random() * 9000)}`;
+      if (!admin.hospitalPortalId) {
+        admin.hospitalPortalId = admin.id && admin.id.startsWith('SJV-HTPL-') ? admin.id : generateHospitalPortalId();
+        admin.id = admin.hospitalPortalId;
         migrated = true;
       }
     });
@@ -849,7 +1513,7 @@ export class DatabaseService {
     if (migrated) {
       localStorage.setItem('sj_admins', JSON.stringify(admins));
       const activeUser = JSON.parse(localStorage.getItem('sj_active_user') || 'null');
-      if (activeUser && activeUser.adminName && !activeUser.id.startsWith('SJV-HTPL-')) {
+      if (activeUser && activeUser.adminName && !activeUser.hospitalPortalId) {
         const matchingAdmin = admins.find((a) => a.email === activeUser.email);
         if (matchingAdmin) {
           localStorage.setItem('sj_active_user', JSON.stringify(matchingAdmin));
@@ -868,10 +1532,11 @@ export class DatabaseService {
     if (authError) throw new Error(authError.message);
     if (!authData.user) throw new Error('Admin registration failed');
 
-    const customId = `SJV-HTPL-${Math.floor(1000 + Math.random() * 9000)}`;
+    const portalId = generateHospitalPortalId();
 
     const newAdmin: HospitalAdminProfile = {
-      id: customId,
+      id: portalId,
+      hospitalPortalId: portalId,
       hospitalName,
       address,
       adminName,
@@ -882,9 +1547,10 @@ export class DatabaseService {
     admins.push(newAdmin);
     localStorage.setItem('sj_admins', JSON.stringify(admins));
 
-    // Save to Supabase
+    // Save to Supabase permanently
     const { error: dbError } = await supabase.from('admins').upsert({
       id: newAdmin.id,
+      hospital_portal_id: newAdmin.hospitalPortalId,
       hospital_name: newAdmin.hospitalName,
       address: newAdmin.address,
       admin_name: newAdmin.adminName,
@@ -897,24 +1563,52 @@ export class DatabaseService {
     return newAdmin;
   }
 
-  static async updateAdminProfile(admin: HospitalAdminProfile) {
+  static async updateAdminProfile(updatedAdmin: HospitalAdminProfile) {
     this.init();
     const admins = this.getAdmins();
-    const idx = admins.findIndex(a => a.id === admin.id);
+    const idx = admins.findIndex(a => a.id === updatedAdmin.id || a.hospitalPortalId === updatedAdmin.hospitalPortalId);
+    
+    // PERMANENT PORTAL ID GUARD: Never regenerate hospitalPortalId
+    const targetAdmin: HospitalAdminProfile = idx !== -1 ? {
+      ...admins[idx],
+      ...updatedAdmin,
+      hospitalPortalId: admins[idx].hospitalPortalId // Immutable
+    } : updatedAdmin;
+
     if (idx !== -1) {
-      admins[idx] = admin;
-      localStorage.setItem('sj_admins', JSON.stringify(admins));
-      localStorage.setItem('sj_active_user', JSON.stringify(admin));
-      
-      const { error: dbError } = await supabase.from('admins').upsert({
-        id: admin.id,
-        hospital_name: admin.hospitalName,
-        address: admin.address,
-        admin_name: admin.adminName,
-        email: admin.email
-      });
-      if (dbError) console.error('Supabase admin update failed:', dbError);
+      admins[idx] = targetAdmin;
+    } else {
+      admins.push(targetAdmin);
     }
+    localStorage.setItem('sj_admins', JSON.stringify(admins));
+    
+    const { user } = this.getActiveSession();
+    if (user && ((user as any).id === targetAdmin.id || (user as HospitalAdminProfile).hospitalPortalId === targetAdmin.hospitalPortalId)) {
+      localStorage.setItem('sj_active_user', JSON.stringify(targetAdmin));
+    }
+
+    // Supabase sync
+    const { error: dbError } = await supabase.from('admins').upsert({
+      id: targetAdmin.id,
+      hospital_portal_id: targetAdmin.hospitalPortalId,
+      hospital_name: targetAdmin.hospitalName,
+      address: targetAdmin.address,
+      admin_name: targetAdmin.adminName,
+      email: targetAdmin.email,
+      phone: targetAdmin.phone,
+      avatar_url: targetAdmin.avatarUrl,
+      hospital_logo_url: targetAdmin.hospitalLogoUrl,
+      hospital_email: targetAdmin.hospitalEmail,
+      hospital_phone: targetAdmin.hospitalPhone,
+      hospital_status: targetAdmin.hospitalStatus || 'Active',
+      email_verified: targetAdmin.emailVerified,
+      phone_verified: targetAdmin.phoneVerified,
+      security_score: targetAdmin.securityScore
+    });
+    if (dbError) console.error('Supabase admin update failed:', dbError);
+    
+    realtimeBroker.publish('admins-update');
+    return targetAdmin;
   }
 
   static async loginAdmin(email: string, password: string): Promise<HospitalAdminProfile | null> {
@@ -935,8 +1629,17 @@ export class DatabaseService {
       throw new Error('Access denied. This account is not registered as a Hospital Admin.');
     }
 
+    let portalId = dbAdmin.hospital_portal_id || dbAdmin.id;
+    if (!portalId || !portalId.startsWith('SJV-HTPL-')) {
+      portalId = generateHospitalPortalId();
+      supabase.from('admins').update({ hospital_portal_id: portalId }).eq('id', dbAdmin.id).then(({ error }) => {
+        if (error) console.error('Failed to update hospital_portal_id in Supabase:', error);
+      });
+    }
+
     let admin: HospitalAdminProfile = {
       id: dbAdmin.id,
+      hospitalPortalId: portalId,
       hospitalName: dbAdmin.hospital_name,
       address: dbAdmin.address,
       adminName: dbAdmin.admin_name,
@@ -958,28 +1661,85 @@ export class DatabaseService {
     return admin;
   }
 
-  static getDoctors(): DoctorProfile[] {
+  static getDoctors(hospitalPortalId?: string): DoctorProfile[] {
     this.init();
     let doctors: DoctorProfile[] = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
     doctors = doctors.filter(d => d !== null && d !== undefined);
-    let migrated = false;
     
-    // Auto-migrate orphaned doctors to the first available admin if they have an old UUID format
-    const admins = this.getAdmins();
-    if (admins.length > 0) {
-      doctors.forEach(doc => {
-        if (doc.hospitalId && !doc.hospitalId.startsWith('SJV-HTPL-')) {
-          doc.hospitalId = admins[0].id;
-          migrated = true;
-        }
-      });
-    }
-
-    if (migrated) {
-      localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+    if (hospitalPortalId) {
+      return doctors.filter(d => d.hospitalId?.trim() === hospitalPortalId.trim());
     }
     
     return doctors;
+  }
+
+  static addDoctor(doctorData: { name: string; email: string; specialty: string; clinicName: string; hospitalId: string; approvalStatus?: 'pending' | 'accepted' | 'rejected' }): DoctorProfile {
+    this.init();
+    const newDoc: DoctorProfile = {
+      id: `doc_${Date.now()}`,
+      name: doctorData.name,
+      email: doctorData.email,
+      specialty: doctorData.specialty,
+      clinicName: doctorData.clinicName,
+      hospitalId: doctorData.hospitalId,
+      approvalStatus: doctorData.approvalStatus || 'accepted'
+    };
+
+    const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    doctors.push(newDoc);
+    localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+
+    supabase.from('doctors').insert({
+      id: newDoc.id,
+      name: newDoc.name,
+      email: newDoc.email,
+      specialty: newDoc.specialty,
+      clinic_name: newDoc.clinicName,
+      hospital_id: newDoc.hospitalId,
+      approval_status: newDoc.approvalStatus
+    }).then(({ error }) => {
+      if (error) console.error('Supabase doctor insert failed:', error);
+    });
+
+    realtimeBroker.publish('doctors-update');
+    return newDoc;
+  }
+
+  static updateDoctor(doc: DoctorProfile) {
+    this.init();
+    const doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    const idx = doctors.findIndex((d: any) => d && d.id === doc.id);
+    if (idx !== -1) {
+      doctors[idx] = doc;
+      localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+
+      supabase.from('doctors').upsert({
+        id: doc.id,
+        name: doc.name,
+        email: doc.email,
+        specialty: doc.specialty,
+        clinic_name: doc.clinicName,
+        hospital_id: doc.hospitalId,
+        approval_status: doc.approvalStatus
+      }).then(({ error }) => {
+        if (error) console.error('Supabase doctor update failed:', error);
+      });
+
+      realtimeBroker.publish('doctors-update');
+    }
+  }
+
+  static deleteDoctor(doctorId: string) {
+    this.init();
+    let doctors = JSON.parse(localStorage.getItem('sj_doctors_list') || '[]');
+    doctors = doctors.filter((d: any) => d && d.id !== doctorId);
+    localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
+
+    supabase.from('doctors').delete().eq('id', doctorId).then(({ error }) => {
+      if (error) console.error('Supabase doctor delete failed:', error);
+    });
+
+    realtimeBroker.publish('doctors-update');
   }
 
   static updateDoctorApproval(doctorId: string, status: 'accepted' | 'rejected') {
@@ -989,17 +1749,14 @@ export class DatabaseService {
       doctors[docIdx].approvalStatus = status;
       localStorage.setItem('sj_doctors_list', JSON.stringify(doctors));
       
-      // Update session if it's the current user
       const activeUser = JSON.parse(localStorage.getItem('sj_active_user') || 'null');
       if (activeUser && activeUser.id === doctorId) {
         localStorage.setItem('sj_active_user', JSON.stringify(doctors[docIdx]));
         localStorage.setItem('sj_doctor', JSON.stringify(doctors[docIdx]));
       }
       
-      // Persist approval_status to Supabase so it survives page refreshes
       supabase.from('doctors').update({ approval_status: status }).eq('id', doctorId).then(({ error }) => {
         if (error) console.error('Supabase doctor approval update failed:', error);
-        else console.log(`Doctor ${doctorId} approval_status set to '${status}' in Supabase`);
       });
       
       realtimeBroker.publish('doctors-update');
@@ -1009,47 +1766,77 @@ export class DatabaseService {
   // ----------------------------------------------------
   // Appointment Actions
   // ----------------------------------------------------
-  static getAppointments(): Appointment[] {
+  // ----------------------------------------------------
+  // Appointment Actions
+  // ----------------------------------------------------
+  static getAppointments(hospitalPortalId?: string): Appointment[] {
     this.init();
     const apts = JSON.parse(localStorage.getItem('sj_appointments') || '[]');
-    return (Array.isArray(apts) ? apts : []).filter(Boolean);
+    const list: Appointment[] = (Array.isArray(apts) ? apts : []).filter(Boolean);
+    if (hospitalPortalId) {
+      return list.filter(a => a.hospitalId?.trim() === hospitalPortalId.trim());
+    }
+    return list;
   }
 
-  static requestAppointment(params: { patientId: string; hospitalId: string; timeRange: string; reason: string }): Appointment;
-  static requestAppointment(patientId: string, hospitalId: string, timeRange: string, reason: string): Appointment;
-  static requestAppointment(patientIdOrParams: string | { patientId: string; hospitalId: string; timeRange: string; reason: string }, hospitalId?: string, timeRange?: string, reason?: string): Appointment {
-    let patientId: string, hId: string, tRange: string, rsn: string;
+  // Helper to generate token number
+  static generateTokenNumber(hospitalId: string): string {
+    const apts = this.getAppointments(hospitalId);
+    const count = apts.length + 1;
+    return `TKN-${String(count).padStart(3, '0')}`;
+  }
+
+  static requestAppointment(params: { patientId: string; hospitalId: string; timeRange: string; reason: string; doctorId?: string; department?: string; tokenNumber?: string }): Appointment;
+  static requestAppointment(patientId: string, hospitalId: string, timeRange: string, reason: string, doctorId?: string, department?: string, tokenNumber?: string): Appointment;
+  static requestAppointment(patientIdOrParams: string | { patientId: string; hospitalId: string; timeRange: string; reason: string; doctorId?: string; department?: string; tokenNumber?: string }, hospitalId?: string, timeRange?: string, reason?: string, doctorId?: string, department?: string, tokenNumber?: string): Appointment {
+    let patientId: string, hId: string, tRange: string, rsn: string, docId: string | undefined, dept: string | undefined, tkn: string | undefined;
     if (typeof patientIdOrParams === 'object') {
       patientId = patientIdOrParams.patientId;
       hId = patientIdOrParams.hospitalId;
       tRange = patientIdOrParams.timeRange;
       rsn = patientIdOrParams.reason;
+      docId = patientIdOrParams.doctorId;
+      dept = patientIdOrParams.department;
+      tkn = patientIdOrParams.tokenNumber;
     } else {
       patientId = patientIdOrParams;
       hId = hospitalId!;
       tRange = timeRange!;
       rsn = reason!;
+      docId = doctorId;
+      dept = department;
+      tkn = tokenNumber;
     }
     const apts = this.getAppointments();
     const newApt: Appointment = {
       id: `apt_${Date.now()}`,
       patientId,
       hospitalId: hId,
+      doctorId: docId,
+      department: dept,
+      tokenNumber: tkn || this.generateTokenNumber(hId),
       timeRange: tRange,
       reason: rsn,
-      status: 'pending',
+      status: docId ? 'forwarded' : 'pending',
       createdAt: new Date().toISOString()
     };
     apts.unshift(newApt);
     localStorage.setItem('sj_appointments', JSON.stringify(apts));
 
-    // Persist to Supabase
+    // Persist to Supabase (Serialize reason, department, tokenNumber inside the reason column to match database schema)
+    const serializedReason = JSON.stringify({
+      text: newApt.reason,
+      department: newApt.department || '',
+      tokenNumber: newApt.tokenNumber || ''
+    });
+
     supabase.from('appointments').insert({
       id: newApt.id,
       patient_id: newApt.patientId,
       hospital_id: newApt.hospitalId,
+      doctor_id: newApt.doctorId,
       time_range: newApt.timeRange,
-      reason: newApt.reason,
+      reason: serializedReason,
       status: newApt.status,
       created_at: newApt.createdAt
     }).then(({ error }) => {
@@ -1077,13 +1864,105 @@ export class DatabaseService {
     }
   }
 
-  static markAppointmentCompleted(appointmentId: string) {
+  static updateAppointmentStatus(appointmentId: string, status: Appointment['status']) {
     const apts = this.getAppointments();
     const aptIdx = apts.findIndex(a => a.id === appointmentId);
     if (aptIdx !== -1) {
-      apts[aptIdx].status = 'completed';
+      apts[aptIdx].status = status;
       localStorage.setItem('sj_appointments', JSON.stringify(apts));
+
+      supabase.from('appointments').update({ status }).eq('id', appointmentId).then(({ error }) => {
+        if (error) console.error('Supabase appointment status update failed:', error);
+      });
+
       realtimeBroker.publish('appointments-update');
+    }
+  }
+
+  static markAppointmentCompleted(appointmentId: string) {
+    this.updateAppointmentStatus(appointmentId, 'completed');
+  }
+
+  // ----------------------------------------------------
+  // Consultation Notes Module
+  // ----------------------------------------------------
+  static getConsultationNotes(hospitalPortalId?: string): ConsultationNote[] {
+    this.init();
+    const notes: ConsultationNote[] = JSON.parse(localStorage.getItem('sj_consultation_notes') || '[]');
+    if (hospitalPortalId) {
+      return notes.filter(n => n.hospitalPortalId?.trim() === hospitalPortalId.trim());
+    }
+    return notes;
+  }
+
+  static addConsultationNote(params: {
+    hospitalPortalId: string;
+    patientId: string;
+    patientName: string;
+    doctorId: string;
+    doctorName: string;
+    diagnosis: string;
+    prescribedMedicines: Drug[];
+    recommendedTests: string[];
+    followUpAdvice: string;
+  }): ConsultationNote {
+    this.init();
+    const newNote: ConsultationNote = {
+      id: `cn_${Date.now()}`,
+      hospitalPortalId: params.hospitalPortalId,
+      patientId: params.patientId,
+      patientName: params.patientName,
+      doctorId: params.doctorId,
+      doctorName: params.doctorName,
+      diagnosis: params.diagnosis,
+      prescribedMedicines: params.prescribedMedicines,
+      recommendedTests: params.recommendedTests,
+      followUpAdvice: params.followUpAdvice,
+      status: 'pending_explanation',
+      createdAt: new Date().toISOString()
+    };
+
+    const notes = this.getConsultationNotes();
+    notes.unshift(newNote);
+    localStorage.setItem('sj_consultation_notes', JSON.stringify(notes));
+
+    supabase.from('consultation_notes').insert({
+      id: newNote.id,
+      hospital_portal_id: newNote.hospitalPortalId,
+      patient_id: newNote.patientId,
+      patient_name: newNote.patientName,
+      doctor_id: newNote.doctorId,
+      doctor_name: newNote.doctorName,
+      diagnosis: newNote.diagnosis,
+      prescribed_medicines: newNote.prescribedMedicines,
+      recommended_tests: newNote.recommendedTests,
+      follow_up_advice: newNote.followUpAdvice,
+      status: newNote.status,
+      created_at: newNote.createdAt
+    }).then(({ error }) => {
+      if (error) console.error('Supabase consultation note insert failed:', error);
+    });
+
+    realtimeBroker.publish('consultation-notes-update');
+    return newNote;
+  }
+
+  static markConsultationNoteExplained(noteId: string) {
+    const notes = this.getConsultationNotes();
+    const idx = notes.findIndex(n => n.id === noteId);
+    if (idx !== -1) {
+      notes[idx].status = 'explained';
+      notes[idx].explainedAt = new Date().toISOString();
+      localStorage.setItem('sj_consultation_notes', JSON.stringify(notes));
+
+      supabase.from('consultation_notes').update({
+        status: 'explained',
+        explained_at: notes[idx].explainedAt
+      }).eq('id', noteId).then(({ error }) => {
+        if (error) console.error('Supabase consultation note status update failed:', error);
+      });
+
+      realtimeBroker.publish('consultation-notes-update');
     }
   }
 
@@ -1123,9 +2002,14 @@ export class DatabaseService {
   // ----------------------------------------------------
   // Patients Retrieval & Management
   // ----------------------------------------------------
-  static getPatients(): PatientProfile[] {
+  static getPatients(hospitalPortalId?: string): PatientProfile[] {
     this.init();
-    return JSON.parse(localStorage.getItem('sj_patients') || '[]');
+    const pats: PatientProfile[] = JSON.parse(localStorage.getItem('sj_patients') || '[]');
+    const validPats = pats.filter(p => p && p.id);
+    if (hospitalPortalId && hospitalPortalId.trim() !== '') {
+      return validPats.filter(p => p.hospitalPortalId && p.hospitalPortalId.trim() === hospitalPortalId.trim());
+    }
+    return validPats;
   }
 
   static getPatientById(id: string): PatientProfile | null {
@@ -1134,6 +2018,7 @@ export class DatabaseService {
   }
 
   static registerPatient(params: {
+    hospitalPortalId?: string;
     name: string;
     age: number;
     gender: string;
@@ -1152,6 +2037,7 @@ export class DatabaseService {
     const patientId = generatePatientId();
     const newPatient: PatientProfile = {
       id: patientId,
+      hospitalPortalId: params.hospitalPortalId,
       name: params.name,
       age: params.age,
       phone: params.phone,
@@ -1181,17 +2067,18 @@ export class DatabaseService {
         weight: 70,
         pulseRate: 72,
       },
+      accountStatus: 'pending_activation',
+      registeredAt: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     };
 
-    const patients = this.getPatients();
+    const patients = JSON.parse(localStorage.getItem('sj_patients') || '[]');
     patients.push(newPatient);
     localStorage.setItem('sj_patients', JSON.stringify(patients));
-    localStorage.setItem('sj_active_role', 'patient');
-    localStorage.setItem('sj_active_user', JSON.stringify(newPatient));
 
     // Supabase insert patient
     supabase.from('patients').insert({
       id: newPatient.id,
+      hospital_portal_id: newPatient.hospitalPortalId,
       name: newPatient.name,
       age: newPatient.age,
       phone: newPatient.phone,
@@ -1452,45 +2339,87 @@ export class DatabaseService {
   }
 
   // ----------------------------------------------------
-  // Lab Reports
+  // Lab Reports & Scans Management
   // ----------------------------------------------------
-  static getReports(patientId?: string): UploadedReport[] {
+  static getReports(patientId?: string, hospitalPortalId?: string): UploadedReport[] {
     this.init();
     let reports: UploadedReport[] = JSON.parse(localStorage.getItem('sj_reports') || '[]');
     reports = reports.filter(r => r !== null && r !== undefined);
+    if (hospitalPortalId) {
+      reports = reports.filter(r => !r.hospitalPortalId || r.hospitalPortalId.trim() === hospitalPortalId.trim());
+    }
     if (patientId) {
       return reports.filter(r => r.patientId === patientId).sort((a,b) => b.date.localeCompare(a.date));
     }
     return reports.sort((a,b) => b.date.localeCompare(a.date));
   }
 
-  static uploadReport(patientId: string, title: string, category: UploadedReport['category'], parsedSummary: string, notes?: string): UploadedReport {
+  static uploadReport(params: {
+    patientId: string;
+    hospitalPortalId?: string;
+    title: string;
+    category: UploadedReport['category'];
+    fileUrl?: string;
+    parsedSummary?: string;
+    notes?: string;
+    uploaderName?: string;
+  }): UploadedReport;
+  static uploadReport(patientId: string, title: string, category: UploadedReport['category'], parsedSummary: string, notes?: string): UploadedReport;
+  static uploadReport(
+    patientIdOrParams: string | { patientId: string; hospitalPortalId?: string; title: string; category: UploadedReport['category']; fileUrl?: string; parsedSummary?: string; notes?: string; uploaderName?: string },
+    title?: string,
+    category?: UploadedReport['category'],
+    parsedSummary?: string,
+    notes?: string
+  ): UploadedReport {
     this.init();
+    let pId: string, hId: string | undefined, t: string, c: UploadedReport['category'], fUrl: string, pSummary: string | undefined, nts: string | undefined, uName: string;
+    
+    if (typeof patientIdOrParams === 'object') {
+      pId = patientIdOrParams.patientId;
+      hId = patientIdOrParams.hospitalPortalId;
+      t = patientIdOrParams.title;
+      c = patientIdOrParams.category;
+      fUrl = patientIdOrParams.fileUrl || '#';
+      pSummary = patientIdOrParams.parsedSummary;
+      nts = patientIdOrParams.notes;
+      uName = patientIdOrParams.uploaderName || 'Hospital Admin & Diagnostic Center';
+    } else {
+      pId = patientIdOrParams;
+      t = title!;
+      c = category!;
+      fUrl = '#';
+      pSummary = parsedSummary;
+      nts = notes;
+      uName = 'Sanjeevani Smart AI Scanning';
+    }
+
     const reportDate = new Date().toISOString().split('T')[0];
     const newReport: UploadedReport = {
       id: `rep_${Date.now()}`,
-      patientId,
-      title,
+      patientId: pId,
+      hospitalPortalId: hId,
+      title: t,
       date: reportDate,
-      category,
-      fileUrl: '#',
-      parsedSummary,
-      notes,
-      uploaderName: 'Sanjeevani Smart AI Scanning'
+      category: c,
+      fileUrl: fUrl,
+      parsedSummary: pSummary,
+      notes: nts,
+      uploaderName: uName
     };
 
-    const reports = this.getReports();
+    const reports = JSON.parse(localStorage.getItem('sj_reports') || '[]');
     reports.push(newReport);
     localStorage.setItem('sj_reports', JSON.stringify(reports));
 
-    const alerts = this.getAlerts(patientId);
+    const alerts = this.getAlerts(pId);
     const newAlert: HealthAlert = {
       id: `alert_rep_${Date.now()}`,
-      patientId,
+      patientId: pId,
       date: reportDate,
       type: 'report',
-      title: 'New Lab Report Analyzed by AI',
-      message: `AI has processed your new lab report "${title}". Critical findings and risk analysis are ready.`,
+      title: `New Medical Report (${c}) Uploaded`,
+      message: `A new medical report "${t}" has been added to your clinical health records.`,
       relatedId: newReport.id,
       redirectUrl: `patient/report/${newReport.id}`,
       read: false
@@ -1501,21 +2430,22 @@ export class DatabaseService {
     // Supabase inserts
     supabase.from('reports').insert({
       id: newReport.id,
-      patient_id: patientId,
-      title: title,
+      patient_id: pId,
+      hospital_portal_id: hId,
+      title: t,
       date: reportDate,
-      category: category,
-      file_url: '#',
-      parsed_summary: parsedSummary,
-      notes: notes,
-      uploader_name: newReport.uploaderName
+      category: c,
+      file_url: fUrl,
+      parsed_summary: pSummary,
+      notes: nts,
+      uploader_name: uName
     }).then(({ error }) => {
       if (error) console.error('Supabase report upload failed:', error);
     });
 
     supabase.from('alerts').insert({
       id: newAlert.id,
-      patient_id: patientId,
+      patient_id: pId,
       date: reportDate,
       type: 'report',
       title: newAlert.title,
@@ -1528,10 +2458,113 @@ export class DatabaseService {
     });
 
     realtimeBroker.publish('reports-update');
-    realtimeBroker.publish(`patient-${patientId}`);
-    realtimeBroker.publish(`alerts-${patientId}`);
+    realtimeBroker.publish(`patient-${pId}`);
+    realtimeBroker.publish(`alerts-${pId}`);
+
+    // Auto update matching pending recommended test status to Completed
+    try {
+      const recTests = this.getRecommendedTests(pId, hId);
+      const matchingRec = recTests.find(rt => 
+        rt.status === 'Pending' && 
+        (rt.testName.toLowerCase().includes(c.toLowerCase()) || 
+         c.toLowerCase().includes(rt.testName.toLowerCase()) ||
+         t.toLowerCase().includes(rt.testName.toLowerCase()) ||
+         rt.testName.toLowerCase().includes(t.toLowerCase()))
+      );
+      if (matchingRec) {
+        this.updateRecommendedTestStatus(matchingRec.id, 'Completed', newReport.id);
+      }
+    } catch (err) {
+      console.warn('Auto recommended test update failed:', err);
+    }
 
     return newReport;
+  }
+
+  // ----------------------------------------------------
+  // Recommended Tests Management
+  // ----------------------------------------------------
+  static getRecommendedTests(patientId?: string, hospitalPortalId?: string): RecommendedTestRecord[] {
+    this.init();
+    const tests: RecommendedTestRecord[] = JSON.parse(localStorage.getItem('sj_recommended_tests') || '[]');
+    let filtered = tests.filter(t => t && t.id);
+
+    if (hospitalPortalId && hospitalPortalId.trim() !== '') {
+      filtered = filtered.filter(t => t.hospitalPortalId && t.hospitalPortalId.trim() === hospitalPortalId.trim());
+    }
+
+    if (patientId) {
+      filtered = filtered.filter(t => t.patientId === patientId);
+    }
+
+    return filtered.sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+  }
+
+  static addRecommendedTests(testsList: {
+    patientId: string;
+    hospitalPortalId: string;
+    visitId?: string;
+    testName: string;
+    category?: string;
+    recommendedByDoctor: string;
+  }[]): RecommendedTestRecord[] {
+    this.init();
+    const existing: RecommendedTestRecord[] = JSON.parse(localStorage.getItem('sj_recommended_tests') || '[]');
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    const newRecords: RecommendedTestRecord[] = testsList.map((t, idx) => ({
+      id: `rt_${Date.now()}_${idx}`,
+      patientId: t.patientId,
+      hospitalPortalId: t.hospitalPortalId,
+      visitId: t.visitId,
+      testName: t.testName,
+      category: t.category || 'Diagnostic Test',
+      status: 'Pending',
+      recommendedByDoctor: t.recommendedByDoctor,
+      date: dateStr
+    }));
+
+    const combined = [...newRecords, ...existing];
+    localStorage.setItem('sj_recommended_tests', JSON.stringify(combined));
+
+    newRecords.forEach(rec => {
+      supabase.from('recommended_tests').insert({
+        id: rec.id,
+        patient_id: rec.patientId,
+        hospital_portal_id: rec.hospitalPortalId,
+        visit_id: rec.visitId,
+        test_name: rec.testName,
+        category: rec.category,
+        status: rec.status,
+        recommended_by_doctor: rec.recommendedByDoctor,
+        created_at: rec.date
+      }).then(({ error }) => {
+        if (error) console.error('Supabase recommended test insert failed:', error);
+      });
+    });
+
+    realtimeBroker.publish('recommended-tests-update');
+    return newRecords;
+  }
+
+  static updateRecommendedTestStatus(id: string, status: 'Pending' | 'Completed', reportId?: string) {
+    this.init();
+    const existing: RecommendedTestRecord[] = JSON.parse(localStorage.getItem('sj_recommended_tests') || '[]');
+    const idx = existing.findIndex(t => t.id === id);
+    if (idx !== -1) {
+      existing[idx].status = status;
+      if (reportId) existing[idx].reportId = reportId;
+      localStorage.setItem('sj_recommended_tests', JSON.stringify(existing));
+
+      supabase.from('recommended_tests').update({
+        status: status,
+        report_id: reportId
+      }).eq('id', id).then(({ error }) => {
+        if (error) console.error('Supabase recommended test status update failed:', error);
+      });
+
+      realtimeBroker.publish('recommended-tests-update');
+    }
   }
 
   // ----------------------------------------------------
@@ -1960,5 +2993,44 @@ export class DatabaseService {
     realtimeBroker.publish(`alerts-${patientId}`);
 
     return newLog;
+  }
+
+  // --- Admin Account Center & Security ---
+  static getLoginActivityLogs(adminId: string): LoginActivityLog[] {
+    this.init();
+    const raw = localStorage.getItem(`sj_login_logs_${adminId}`);
+    if (raw) {
+      try {
+        return JSON.parse(raw);
+      } catch (e) {
+        // fallback
+      }
+    }
+    // Standard initial logs
+    const defaultLogs: LoginActivityLog[] = [
+      { id: 'log-1', date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }), time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }), device: 'Windows PC', browser: 'Chrome 126.0', isCurrent: true },
+      { id: 'log-2', date: '21 Jul 2026', time: '08:30 PM', device: 'Android Pixel Device', browser: 'Chrome Mobile', isCurrent: false },
+      { id: 'log-3', date: '20 Jul 2026', time: '09:15 AM', device: 'MacBook Pro', browser: 'Safari 17.4', isCurrent: false },
+      { id: 'log-4', date: '18 Jul 2026', time: '04:45 PM', device: 'Windows PC', browser: 'Edge 125.0', isCurrent: false }
+    ];
+    localStorage.setItem(`sj_login_logs_${adminId}`, JSON.stringify(defaultLogs));
+    return defaultLogs;
+  }
+
+  static recordLoginActivity(adminId: string, device: string, browser: string) {
+    const logs = this.getLoginActivityLogs(adminId);
+    logs.forEach(l => l.isCurrent = false);
+    const newLog: LoginActivityLog = {
+      id: `log-${Date.now()}`,
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      device,
+      browser,
+      isCurrent: true
+    };
+    logs.unshift(newLog);
+    const trimmed = logs.slice(0, 10); // Keep last 10 sessions
+    localStorage.setItem(`sj_login_logs_${adminId}`, JSON.stringify(trimmed));
+    return trimmed;
   }
 }

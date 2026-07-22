@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { DatabaseService } from '../../services/db';
-import { Building, ArrowRight, AlertCircle, User, MapPin, Mail, Lock, Eye, EyeOff } from 'lucide-react';
+import { DatabaseService, HospitalAdminProfile } from '../../services/db';
+import { Building, ArrowRight, AlertCircle, User, MapPin, Mail, Lock, Eye, EyeOff, CheckCircle2, ShieldCheck } from 'lucide-react';
 
 interface AdminAuthProps {
   onNavigate: (view: string) => void;
@@ -17,6 +17,9 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
   const [address, setAddress] = useState('');
   const [adminName, setAdminName] = useState('');
   const [error, setError] = useState('');
+
+  // Registration success state
+  const [registeredAdmin, setRegisteredAdmin] = useState<HospitalAdminProfile | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,13 +46,47 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
         return;
       }
       try {
-        await DatabaseService.registerAdmin(hospitalName, address, adminName, email, password);
-        onNavigate('admin/dashboard');
+        const admin = await DatabaseService.registerAdmin(hospitalName, address, adminName, email, password);
+        setRegisteredAdmin(admin);
       } catch (err: any) {
         setError(err.message || 'Registration failed.');
       }
     }
   };
+
+  if (registeredAdmin) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 relative">
+        <div className="w-full max-w-md">
+          <div className="glass-card p-8 rounded-3xl border-emerald-500/30 shadow-premium text-center animate-fade-in">
+            <div className="h-16 w-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-200">
+              <CheckCircle2 className="h-10 w-10" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-800">Hospital Registered!</h2>
+            <p className="text-sm text-slate-500 mt-2">
+              Your hospital account has been created successfully.
+            </p>
+
+            <div className="my-6 p-4 bg-slate-900 text-white rounded-2xl border border-slate-800 space-y-2">
+              <span className="text-xs uppercase font-bold text-teal-400 tracking-wider block">Hospital Portal ID</span>
+              <span className="text-2xl font-mono font-black text-amber-400 tracking-wider block">{registeredAdmin.hospitalPortalId || registeredAdmin.id}</span>
+              <span className="text-[11px] text-slate-400 block pt-1">
+                Save this ID. All doctors and staff will use it to link under {registeredAdmin.hospitalName}.
+              </span>
+            </div>
+
+            <button 
+              onClick={() => onNavigate('admin/dashboard')}
+              className="w-full btn-medical py-3 font-bold text-sm flex items-center justify-center gap-2"
+            >
+              Go to Hospital Dashboard
+              <ArrowRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 relative">
@@ -65,7 +102,7 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
               {isLogin ? 'Hospital Admin Login' : 'Register Hospital'}
             </h2>
             <p className="text-xs text-slate-400 mt-1.5">
-              {isLogin ? 'Access your central hospital management console.' : 'Set up your hospital to manage doctors and patient appointments.'}
+              {isLogin ? 'Access your central hospital management console.' : 'Set up your hospital to manage doctors, patients, and appointments.'}
             </p>
           </div>
 
@@ -77,6 +114,8 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
                   <div className="relative">
                     <input 
                       type="text" 
+                      required
+                      placeholder="e.g. Sanjeevani General Hospital"
                       value={hospitalName}
                       onChange={(e) => setHospitalName(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
@@ -90,6 +129,8 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
                   <div className="relative">
                     <input 
                       type="text" 
+                      required
+                      placeholder="e.g. 104 Health Ave, Sector 4"
                       value={address}
                       onChange={(e) => setAddress(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
@@ -103,6 +144,8 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
                   <div className="relative">
                     <input 
                       type="text" 
+                      required
+                      placeholder="e.g. Dr. Rajesh Kumar"
                       value={adminName}
                       onChange={(e) => setAdminName(e.target.value)}
                       className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
@@ -119,6 +162,8 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
                 <input 
                   id="email"
                   type="email" 
+                  required
+                  placeholder="admin@hospital.org"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
@@ -133,6 +178,7 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
                 <input 
                   id="password"
                   type={showPassword ? "text" : "password"} 
+                  required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-10 pr-10 py-2.5 rounded-xl border border-slate-200 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20"
@@ -141,7 +187,7 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
                 <button 
                   type="button" 
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3.5 top-3.5 text-slate-400"
+                  className="absolute right-3.5 top-3.5 text-slate-400 hover:text-slate-600"
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -174,3 +220,4 @@ export const AdminAuth: React.FC<AdminAuthProps> = ({ onNavigate }) => {
     </div>
   );
 };
+

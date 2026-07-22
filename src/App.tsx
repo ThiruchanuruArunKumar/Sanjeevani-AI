@@ -16,6 +16,7 @@ import { NewConsultation } from './routes/Doctor/NewConsultation';
 import { PrescriptionCreator } from './routes/Doctor/PrescriptionCreator';
 import { UploadReport } from './routes/Doctor/UploadReport';
 import { AIAlerts } from './routes/Doctor/AIAlerts';
+import { ConsultationHistory } from './routes/Doctor/ConsultationHistory';
 import { PatientDashboard } from './routes/Patient/PatientDashboard';
 import { PatientAppointments } from './routes/Patient/PatientAppointments';
 import { PatientHistory } from './routes/Patient/PatientHistory';
@@ -29,6 +30,8 @@ import { AdminDashboard } from './routes/Admin/AdminDashboard';
 import { ManageDoctors } from './routes/Admin/ManageDoctors';
 import { ManageAppointments } from './routes/Admin/ManageAppointments';
 import { ManagePatients } from './routes/Admin/ManagePatients';
+import { AllPatients } from './routes/Admin/AllPatients';
+import { ConsultationNotes } from './routes/Admin/ConsultationNotes';
 import { DoctorRouteWrapper } from './routes/Doctor/DoctorRouteWrapper';
 import { useIsMobile, isCapacitorAndroid } from './services/platform';
 
@@ -131,9 +134,12 @@ export const App: React.FC = () => {
     // ── 3. DOCTOR ROUTES ───────────────────────────────────
     if (role === 'doctor') {
       const renderDoctorRoute = () => {
-        if (currentView === 'doctor/dashboard')  return <DoctorDashboard onNavigate={handleNavigate} />;
-        if (currentView === 'doctor/alerts')     return <AIAlerts onNavigate={handleNavigate} />;
-        if (currentView === 'doctor/search')     return <SearchPatients onNavigate={handleNavigate} />;
+        if (currentView === 'doctor/dashboard')     return <DoctorDashboard onNavigate={handleNavigate} />;
+        if (currentView === 'doctor/appointments')  return <DoctorDashboard onNavigate={handleNavigate} />;
+        if (currentView === 'doctor/patients')      return <SearchPatients onNavigate={handleNavigate} />;
+        if (currentView === 'doctor/history')       return <ConsultationHistory onNavigate={handleNavigate} />;
+        if (currentView === 'doctor/alerts')        return <AIAlerts onNavigate={handleNavigate} />;
+        if (currentView === 'doctor/search')        return <SearchPatients onNavigate={handleNavigate} />;
 
         if (currentView.startsWith('doctor/patient/')) {
           // doctor/patient/:id/consult  → New Consultation
@@ -143,20 +149,6 @@ export const App: React.FC = () => {
           }
           const pid = currentView.split('doctor/patient/')[1] ?? '';
           return <PatientProfile patientId={pid} onNavigate={handleNavigate} />;
-        }
-
-        if (currentView.startsWith('doctor/prescription')) {
-          const pid = currentView.includes('?patientId=')
-            ? currentView.split('?patientId=')[1] ?? ''
-            : '';
-          return <PrescriptionCreator initialPatientId={pid} onNavigate={handleNavigate} />;
-        }
-
-        if (currentView.startsWith('doctor/upload-report')) {
-          const pid = currentView.includes('?patientId=')
-            ? currentView.split('?patientId=')[1] ?? ''
-            : '';
-          return <UploadReport initialPatientId={pid} onNavigate={handleNavigate} />;
         }
 
         // Any unrecognised doctor/* path → dashboard
@@ -197,10 +189,17 @@ export const App: React.FC = () => {
 
     // ── 4.5 ADMIN ROUTES ───────────────────────────────────
     if (role === 'admin') {
-      if (currentView === 'admin/dashboard')     return <AdminDashboard onNavigate={handleNavigate} />;
-      if (currentView === 'admin/doctors')       return <ManageDoctors onNavigate={handleNavigate} />;
-      if (currentView === 'admin/appointments')  return <ManageAppointments onNavigate={handleNavigate} />;
-      if (currentView === 'admin/patients')      return <ManagePatients onNavigate={handleNavigate} />;
+      if (currentView === 'admin/dashboard')            return <AdminDashboard onNavigate={handleNavigate} />;
+      if (currentView === 'admin/doctors')              return <ManageDoctors onNavigate={handleNavigate} />;
+      if (currentView === 'admin/appointments')         return <ManageAppointments onNavigate={handleNavigate} />;
+      if (currentView === 'admin/patient-registration') return <ManagePatients onNavigate={handleNavigate} />;
+      if (currentView === 'admin/all-patients')         return <AllPatients onNavigate={handleNavigate} />;
+      if (currentView === 'admin/patients')             return <ManagePatients onNavigate={handleNavigate} />;
+      if (currentView === 'admin/consultations')        return <ConsultationNotes onNavigate={handleNavigate} />;
+      if (currentView === 'admin/consultation-notes')   return <ConsultationNotes onNavigate={handleNavigate} />;
+      if (currentView === 'admin/reports')             return <UploadReport onNavigate={handleNavigate} />;
+      if (currentView === 'admin/alerts')              return <AIAlerts onNavigate={handleNavigate} />;
+      if (currentView === 'admin/profile')             return <Profile onNavigate={handleNavigate} />;
       
       if (currentView.startsWith('admin/')) {
         return <AdminDashboard onNavigate={handleNavigate} />;

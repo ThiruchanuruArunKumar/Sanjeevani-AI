@@ -179,10 +179,12 @@ export const UploadReport: React.FC<UploadReportProps> = ({ initialPatientId = '
                     onChange={(e) => setCategory(e.target.value)}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white/50 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-primary"
                   >
-                    <option value="Lab Report">Lab Report (Renal, Metabolic, Blood)</option>
-                    <option value="Cardiology">Cardiology (ECG, Stress Test)</option>
-                    <option value="Radiology">Radiology (CT, X-Ray, MRI)</option>
-                    <option value="General">General Medical History</option>
+                    <option value="Blood Reports">Blood Reports</option>
+                    <option value="X-Ray">X-Ray</option>
+                    <option value="MRI">MRI</option>
+                    <option value="CT Scan">CT Scan</option>
+                    <option value="ECG">ECG</option>
+                    <option value="Other Reports">Other Reports</option>
                   </select>
                 </div>
               </div>

@@ -136,6 +136,10 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
   const [adherenceScore, setAdherenceScore] = useState<number>(100);
   const [todayLogs, setTodayLogs] = useState<any[]>([]);
 
+  // Recommended Tests & Diagnostic Reports State
+  const [recommendedTests, setRecommendedTests] = useState<any[]>([]);
+  const [uploadedReports, setUploadedReports] = useState<any[]>([]);
+
   // Appointment Booking State
   const [showBooking, setShowBooking] = useState(false);
   const [hospitals, setHospitals] = useState<HospitalAdminProfile[]>([]);
@@ -177,6 +181,8 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
 
     setFeedbacks(DatabaseService.getFeedbacks(user.id));
     setPredictions(DatabaseService.getPredictions(user.id));
+    setRecommendedTests(DatabaseService.getRecommendedTests(user.id));
+    setUploadedReports(DatabaseService.getReports(user.id));
 
     // Load scheduling and compliance telemetry
     const logs = DatabaseService.getMedicationLogs(p.id);
@@ -212,11 +218,21 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
       loadData();
     });
 
+    const unsubRecTests = realtimeBroker.subscribe('recommended-tests-update', () => {
+      loadData();
+    });
+
+    const unsubReports = realtimeBroker.subscribe('reports-update', () => {
+      loadData();
+    });
+
     return () => {
       unsub();
       unsubFeedbacks();
       unsubPredictions();
       unsubLogs();
+      unsubRecTests();
+      unsubReports();
     };
   }, []);
 
@@ -425,6 +441,46 @@ export const PatientDashboard: React.FC<PatientDashboardProps> = ({ onNavigate }
               </button>
             </div>
           )}
+
+          {/* 🧪 Recommended Diagnostic Tests Tracker */}
+          <div className="glass-card p-6 rounded-3xl space-y-4 border border-teal-500/15 shadow-premium">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-black text-slate-800 flex items-center gap-2">
+                  <Stethoscope className="h-5 w-5 text-teal-600" />
+                  My Recommended Diagnostic Tests & Lab Orders
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">Lab tests & diagnostic scans recommended during doctor consultations.</p>
+              </div>
+              <span className="text-xs font-bold bg-teal-50 text-teal-700 px-3 py-1 rounded-full border border-teal-200">
+                {recommendedTests.length} Total Tests
+              </span>
+            </div>
+
+            {recommendedTests.length === 0 ? (
+              <p className="text-xs text-slate-400 italic py-2">No pending diagnostic tests recommended by your physician.</p>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {recommendedTests.map(rt => (
+                  <div key={rt.id} className="p-3.5 bg-slate-50 border border-slate-200/70 rounded-2xl flex items-center justify-between text-xs">
+                    <div>
+                      <span className="font-extrabold text-slate-800 block">{rt.testName}</span>
+                      <span className="text-[10px] text-slate-400">Recommended by Dr. {rt.recommendedByDoctor} &bull; {rt.date}</span>
+                    </div>
+                    {rt.status === 'Completed' ? (
+                      <span className="px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold rounded-lg flex items-center gap-1">
+                        ✓ Report Ready
+                      </span>
+                    ) : (
+                      <span className="px-2.5 py-1 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded-lg flex items-center gap-1">
+                        ⏳ Pending Test
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* 🩺 Sanjeevani AI Post-Prescription Follow-Up & Recovery Monitor */}
           <div className="glass-card p-6 sm:p-8 rounded-3xl space-y-6 border border-teal-500/10 shadow-premium relative overflow-hidden">

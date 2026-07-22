@@ -18,6 +18,7 @@ import {
   LogOut, 
   ShieldAlert, 
   User,
+  UserPlus,
   Heart,
   Menu,
   X,
@@ -25,7 +26,8 @@ import {
   Moon,
   Building,
   Users,
-  Calendar
+  Calendar,
+  FileText
 } from 'lucide-react';
 
 interface LayoutProps {
@@ -79,11 +81,11 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
 
   const doctorNavItems = [
     { id: 'doctor/dashboard', label: 'Dashboard', icon: <Activity className="h-5 w-5" /> },
-    { id: 'doctor/alerts', label: 'AI Safety Alerts', icon: <ShieldAlert className="h-5 w-5" /> },
-    { id: 'doctor/search', label: 'Search Patients', icon: <Search className="h-5 w-5" /> },
-    { id: 'doctor/prescription', label: 'Prescribe & Safety Check', icon: <Pill className="h-5 w-5" /> },
-    { id: 'doctor/upload-report', label: 'Upload Medical Report', icon: <Upload className="h-5 w-5" /> },
-    { id: 'analytics/healthcare', label: 'Clinical Analytics', icon: <TrendingUp className="h-5 w-5" /> },
+    { id: 'doctor/appointments', label: "Today's Appointments", icon: <Calendar className="h-5 w-5" /> },
+    { id: 'doctor/patients', label: 'My Patients', icon: <Users className="h-5 w-5" /> },
+    { id: 'doctor/history', label: 'Consultation History', icon: <History className="h-5 w-5" /> },
+    { id: 'doctor/alerts', label: 'Notifications', icon: <ShieldAlert className="h-5 w-5" /> },
+    { id: 'doctor/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
   ];
 
   const patientNavItems = [
@@ -95,10 +97,15 @@ export const Layout: React.FC<LayoutProps> = ({ currentView, onNavigate, childre
   ];
 
   const adminNavItems = [
-    { id: 'admin/dashboard', label: 'Admin Dashboard', icon: <Building className="h-5 w-5" /> },
-    { id: 'admin/appointments', label: 'Manage Appointments', icon: <History className="h-5 w-5" /> },
-    { id: 'admin/doctors', label: 'Manage Doctors', icon: <Stethoscope className="h-5 w-5" /> },
-    { id: 'admin/patients', label: 'Manage Patients', icon: <Users className="h-5 w-5" /> },
+    { id: 'admin/dashboard', label: 'Dashboard', icon: <Building className="h-5 w-5" /> },
+    { id: 'admin/doctors', label: 'Doctor Approval Requests', icon: <Stethoscope className="h-5 w-5" /> },
+    { id: 'admin/patient-registration', label: 'Patient Registration', icon: <UserPlus className="h-5 w-5" /> },
+    { id: 'admin/all-patients', label: 'All Patients', icon: <Users className="h-5 w-5" /> },
+    { id: 'admin/appointments', label: 'Appointment Requests', icon: <Calendar className="h-5 w-5" /> },
+    { id: 'admin/consultations', label: 'Consultation Notes', icon: <FileText className="h-5 w-5" /> },
+    { id: 'admin/reports', label: 'Upload Reports', icon: <Upload className="h-5 w-5" /> },
+    { id: 'admin/alerts', label: 'Notifications', icon: <ShieldAlert className="h-5 w-5" /> },
+    { id: 'admin/profile', label: 'Profile', icon: <User className="h-5 w-5" /> },
   ];
 
   const navItems = role === 'admin' ? adminNavItems : role === 'doctor' ? doctorNavItems : patientNavItems;
